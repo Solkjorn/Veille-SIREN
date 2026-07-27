@@ -1,0 +1,22 @@
+# Environnement virtuel
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# VS Code
+.vscode/
+
+# Bases de données
+*.db
+
+# Journaux
+logs/
+
+# Historique
+historique/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
