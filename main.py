@@ -52,6 +52,7 @@ if societes:
     print(f"Forme juridique : {societe_collectee.forme_juridique}")
     print(f"Capital         : {societe_collectee.capital}")
     print(f"Adresse         : {societe_collectee.adresse}")
+    print(f"Dirigeant(s)    : {societe_collectee.dirigeant}")
     print(f"Source          : {societe_collectee.source}")
 
 else:

@@ -28,6 +28,26 @@ def lire_champ(page: Page, libelle: str) -> str:
         return ""
 
 
+def lire_dirigeants(page: Page) -> str:
+    """
+    Récupère les dirigeants et leurs fonctions.
+    """
+    dirigeants = []
+    lignes = page.locator("#representants-container li.dirigeant")
+
+    for index in range(lignes.count()):
+        ligne = lignes.nth(index)
+        nom = ligne.locator(".nom").inner_text().strip()
+        fonction = ligne.locator(".qualite").inner_text().strip()
+
+        if nom and fonction:
+            dirigeants.append(f"{nom} ({fonction})")
+        elif nom:
+            dirigeants.append(nom)
+
+    return " ; ".join(dirigeants)
+
+
 def lire_pappers(siren: str) -> Societe:
     """
     Lit les informations disponibles sur Pappers
@@ -54,6 +74,7 @@ def lire_pappers(siren: str) -> Societe:
             forme_juridique=lire_champ(page, "Forme juridique"),
             capital=lire_champ(page, "Capital social"),
             adresse=lire_champ(page, "Adresse"),
+            dirigeant=lire_dirigeants(page),
             source="Pappers",
         )
 
