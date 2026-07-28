@@ -1,7 +1,9 @@
+from config import FICHIER_SIRENS
 from modules.initialisation import creer_dossiers
 from modules.lecture_excel import lire_sirens
 from modules.validation import siren_valide
-from modules.pappers import tester_pappers
+from modules.collecteur import collecter_societe
+
 
 print("=" * 40)
 print(" VEILLE JURIDIQUE DES SOCIÉTÉS")
@@ -13,31 +15,42 @@ creer_dossiers()
 print()
 print("Lecture du fichier Excel...")
 
-from config import FICHIER_SIRENS
-
 societes = lire_sirens(FICHIER_SIRENS)
 
 print(f"{len(societes)} société(s) trouvée(s).")
 print()
 
-for societe in societes:
+for societe_excel in societes:
 
-    if siren_valide(societe["siren"]):
+    siren = societe_excel["siren"]
+
+    if siren_valide(siren):
         etat = "✅"
     else:
         etat = "❌"
 
     print(
-        f"{etat} {societe['siren']} | "
-        f"Actif : {societe['actif']} | "
-        f"Commentaire : {societe['commentaire']}"
+        f"{etat} {siren} | "
+        f"Actif : {societe_excel['actif']} | "
+        f"Commentaire : {societe_excel['commentaire']}"
     )
     print()
-print("Test de Playwright...")
-print()
 
-societe = tester_pappers(societes[0]["siren"])
-print()
-print("===== RÉSULTAT =====")
-print(f"SIREN : {societe.siren}")
-print(f"Nom : {societe.raison_sociale}")
+
+if societes:
+
+    premier_siren = societes[0]["siren"]
+
+    print("Test de Playwright...")
+    print(f"Lecture de la société portant le SIREN {premier_siren}...")
+    print()
+
+    societe_collectee = collecter_societe(premier_siren)
+
+    print()
+    print(f"SIREN : {societe_collectee.siren}")
+    print(f"Nom : {societe_collectee.raison_sociale}")
+    print(f"Source : {societe_collectee.source}")
+
+else:
+    print("Aucune société n’a été trouvée dans le fichier Excel.")
