@@ -1,8 +1,8 @@
 from config import FICHIER_SIRENS
+from modules.collecteur import collecter_societe
 from modules.initialisation import creer_dossiers
 from modules.lecture_excel import lire_sirens
 from modules.validation import siren_valide
-from modules.collecteur import collecter_societe
 
 
 print("=" * 40)
@@ -21,7 +21,6 @@ print(f"{len(societes)} société(s) trouvée(s).")
 print()
 
 for societe_excel in societes:
-
     siren = societe_excel["siren"]
 
     if siren_valide(siren):
@@ -38,7 +37,6 @@ for societe_excel in societes:
 
 
 if societes:
-
     premier_siren = societes[0]["siren"]
 
     print("Test de Playwright...")
@@ -48,9 +46,13 @@ if societes:
     societe_collectee = collecter_societe(premier_siren)
 
     print()
-    print(f"SIREN : {societe_collectee.siren}")
-    print(f"Nom : {societe_collectee.raison_sociale}")
-    print(f"Source : {societe_collectee.source}")
+    print("===== RÉSULTAT =====")
+    print(f"SIREN           : {societe_collectee.siren}")
+    print(f"Nom             : {societe_collectee.raison_sociale}")
+    print(f"Forme juridique : {societe_collectee.forme_juridique}")
+    print(f"Capital         : {societe_collectee.capital}")
+    print(f"Adresse         : {societe_collectee.adresse}")
+    print(f"Source          : {societe_collectee.source}")
 
 else:
     print("Aucune société n’a été trouvée dans le fichier Excel.")
