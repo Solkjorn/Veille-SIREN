@@ -13,6 +13,7 @@ de :
 - conserver l'historique des collectes ;
 - détecter et présenter les changements ;
 - produire des rapports de veille en HTML ;
+- envoyer automatiquement un rapport hebdomadaire de veille par e-mail ;
 - publier les rapports de veille dans Notion ;
 - produire des rapports journaliers de développement séparés ;
 - fonctionner à terme depuis une interface web.
@@ -94,6 +95,7 @@ Objectif : faire de SQLite la source centrale de l'application.
 ## Phase 5 — Rapports HTML
 
 - Faire du HTML le format principal des rapports de veille.
+- Créer une synthèse hebdomadaire adaptée à l'envoi par e-mail.
 - Ajouter un résumé général de l'exécution.
 - Séparer les sociétés modifiées de celles sans changement.
 - Afficher les anciennes et nouvelles valeurs.
@@ -130,6 +132,9 @@ Créer des rapports distincts des rapports de veille contenant :
 
 - Planifier les collectes quotidiennes.
 - Rendre l'heure configurable.
+- Générer automatiquement le rapport hebdomadaire.
+- Envoyer le rapport hebdomadaire par e-mail aux destinataires configurés.
+- Journaliser les succès et les échecs d'envoi sans bloquer les collectes.
 - Permettre un lancement manuel depuis l'interface.
 - Afficher les dernières et prochaines exécutions.
 - Produire un bilan des succès, changements et erreurs.
@@ -152,5 +157,7 @@ Créer des rapports distincts des rapports de veille contenant :
 - Utilisateur unique ou plusieurs comptes.
 - Suppression définitive ou archivage d'une société.
 - Fréquence et horaire des collectes.
+- Jour et heure d'envoi du rapport hebdomadaire.
+- Destinataires et service utilisé pour l'envoi des e-mails.
 - Structure exacte des espaces Notion.
 - Durée de conservation des rapports et instantanés.

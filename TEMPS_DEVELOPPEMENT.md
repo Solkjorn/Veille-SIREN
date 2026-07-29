@@ -18,9 +18,10 @@ Les durées antérieures au démarrage du suivi automatique sont des estimations
 | 29/07/2026 | Pré-0.2 | Fiabilisation de la navigation Pappers et fermeture garantie de Chromium | ≈ 10 min | ≈ 3 h 35 |
 | 29/07/2026 | Pré-0.2 | Validation globale, nettoyage des artefacts suivis et consolidation Git | ≈ 5 min | ≈ 3 h 40 |
 | 29/07/2026 | Pré-0.2 | Formalisation et sauvegarde de la feuille de route produit | ≈ 5 min | ≈ 3 h 45 |
+| 29/07/2026 | Pré-0.2 | Ajout de l'envoi hebdomadaire des rapports par e-mail à la feuille de route | ≈ 5 min | ≈ 3 h 50 |
 
 ## Total par version
 
 | Version | Durée |
 |---|---:|
-| Pré-0.2 | ≈ 3 h 45 |
+| Pré-0.2 | ≈ 3 h 50 |
