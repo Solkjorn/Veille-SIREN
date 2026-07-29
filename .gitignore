@@ -1,0 +1,30 @@
+# Environnements Python
+.venv/
+venv/
+
+# Caches et fichiers compilés Python
+__pycache__/
+*.py[cod]
+
+# Journaux et fichiers d'exécution locaux
+logs/
+*.log
+donnees/*.sqlite
+donnees/*.sqlite-shm
+donnees/*.sqlite-wal
+rapports/veille_*.md
+rapports/veille_*.md
+donnees/*.sqlite
+donnees/*.sqlite-shm
+donnees/*.sqlite-wal
+
+# Fichiers temporaires des outils
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Fichiers propres aux systèmes et éditeurs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
