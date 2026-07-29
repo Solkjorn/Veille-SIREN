@@ -46,7 +46,9 @@ Le socle technique disponible comprend :
 - la comparaison entre deux collectes ;
 - la détection et l'affichage des changements ;
 - la génération de rapports Markdown ;
-- une suite de tests automatisés.
+- une suite de 29 tests automatisés ;
+- un dépôt de travail déplacé dans Google Drive et synchronisé avec GitHub ;
+- un environnement Python local séparé du dossier synchronisé.
 
 ## Phase 1 — Modèle des sociétés surveillées
 

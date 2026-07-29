@@ -19,9 +19,10 @@ Les durées antérieures au démarrage du suivi automatique sont des estimations
 | 29/07/2026 | Pré-0.2 | Validation globale, nettoyage des artefacts suivis et consolidation Git | ≈ 5 min | ≈ 3 h 40 |
 | 29/07/2026 | Pré-0.2 | Formalisation et sauvegarde de la feuille de route produit | ≈ 5 min | ≈ 3 h 45 |
 | 29/07/2026 | Pré-0.2 | Ajout de l'envoi hebdomadaire des rapports par e-mail à la feuille de route | ≈ 5 min | ≈ 3 h 50 |
+| 29/07/2026 | Pré-0.2 | Déplacement du projet vers Google Drive, réparation et assainissement du dépôt Git, recréation de l'environnement Python, tests et sauvegarde en ligne | ≈ 30 min | ≈ 4 h 20 |
 
 ## Total par version
 
 | Version | Durée |
 |---|---:|
-| Pré-0.2 | ≈ 3 h 50 |
+| Pré-0.2 | ≈ 4 h 20 |
