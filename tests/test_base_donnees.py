@@ -8,6 +8,7 @@ from pathlib import Path
 from modules.base_donnees import (
     enregistrer_societe,
     initialiser_base,
+    lire_collectes_societe,
     lire_derniere_collecte,
 )
 from modules.modele import Societe
@@ -125,6 +126,26 @@ class TestBaseDonnees(unittest.TestCase):
         )
 
         self.assertIsNone(resultat)
+
+    def test_lire_collectes_societe_retourne_l_historique_dans_l_ordre(self):
+        enregistrer_societe(
+            Societe(siren="542051180", statut="Active"), self.chemin_base
+        )
+        enregistrer_societe(
+            Societe(siren="542051180", statut="Radiée"), self.chemin_base
+        )
+        enregistrer_societe(
+            Societe(siren="552032534", statut="Active"), self.chemin_base
+        )
+
+        historique = lire_collectes_societe(
+            "542051180", self.chemin_base
+        )
+
+        self.assertEqual(
+            [collecte.statut for collecte in historique],
+            ["Active", "Radiée"],
+        )
 
 
 if __name__ == "__main__":

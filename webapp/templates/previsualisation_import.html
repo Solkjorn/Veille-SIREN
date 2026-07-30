@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block titre %}Prévisualisation de l'import · Veille-SIREN{% endblock %}
+{% block contenu %}
+  <section class="introduction">
+    <p class="surtitre">Import Excel</p>
+    <h2>Prévisualisation</h2>
+    <p>Vérifiez le contenu avant de confirmer l'import dans SQLite.</p>
+  </section>
+
+  <section class="indicateurs indicateurs-import">
+    <article><strong>{{ apercu.lignes|length }}</strong><span>Lignes valides</span></article>
+    <article><strong>{{ apercu.erreurs|length }}</strong><span>Erreurs détectées</span></article>
+  </section>
+
+  {% if apercu.lignes %}
+    <section class="panneau apercu-import">
+      <div class="titre-panneau"><h3>Lignes prêtes à importer</h3></div>
+      <div class="tableau-defilant">
+        <table>
+          <thead><tr><th>Ligne</th><th>SIREN</th><th>État</th><th>Commentaire</th></tr></thead>
+          <tbody>
+            {% for ligne in apercu.lignes %}
+              <tr>
+                <td>{{ ligne.numero }}</td>
+                <td class="siren">{{ ligne.siren }}</td>
+                <td>{{ "Active" if ligne.actif else "Inactive" }}</td>
+                <td>{{ ligne.commentaire or "—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+
+  {% if apercu.erreurs %}
+    <section class="panneau erreurs-import">
+      <div class="titre-panneau"><h3>Erreurs et lignes ignorées</h3></div>
+      <ul>
+        {% for erreur in apercu.erreurs %}
+          <li><strong>Ligne {{ erreur.numero }}</strong> — {{ erreur.message }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <div class="barre-confirmation">
+    <a class="bouton lien-bouton" href="{{ url_for('tableau_de_bord') }}">Annuler</a>
+    {% if apercu.lignes %}
+      <form method="post" action="{{ url_for('confirmer_import') }}">
+        <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+        <input type="hidden" name="identifiant_import"
+               value="{{ identifiant_import }}">
+        <button class="bouton primaire" type="submit">
+          Confirmer l'import de {{ apercu.lignes|length }} ligne(s)
+        </button>
+      </form>
+    {% endif %}
+  </div>
+{% endblock %}

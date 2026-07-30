@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titre %}Historique {{ surveillance.siren }} · Veille-SIREN{% endblock %}
+{% block contenu %}
+  <nav class="fil-ariane" aria-label="Fil d'Ariane">
+    <a href="{{ url_for('tableau_de_bord') }}">Tableau de bord</a>
+    <span>›</span><span>{{ surveillance.siren }}</span>
+  </nav>
+  <section class="introduction">
+    <p class="surtitre">Historique des collectes</p>
+    <h2>{{ historique[0].collecte.raison_sociale if historique else surveillance.siren }}</h2>
+    <p>{{ surveillance.siren }} · {{ historique|length }} collecte(s) enregistrée(s)</p>
+  </section>
+
+  {% if historique %}
+    <section class="chronologie">
+      {% for entree in historique %}
+        {% set collecte = entree.collecte %}
+        <article class="collecte-historique">
+          <header>
+            <div>
+              <p class="surtitre">Collecte</p>
+              <h3>{{ collecte.date_collecte.strftime("%d/%m/%Y à %H:%M") }}</h3>
+            </div>
+            <span class="badge {{ 'avec-changements' if entree.changements else 'sans-changement' }}">
+              {{ entree.changements|length }} changement(s)
+            </span>
+          </header>
+          {% if entree.changements %}
+            <div class="liste-changements">
+              {% for changement in entree.changements %}
+                <div>
+                  <strong>{{ changement.libelle }}</strong>
+                  <span class="ancienne-valeur">{{ changement.ancienne_valeur or "Non renseigné" }}</span>
+                  <span aria-hidden="true">→</span>
+                  <span class="nouvelle-valeur">{{ changement.nouvelle_valeur or "Non renseigné" }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% elif loop.last %}
+            <p class="rapport-vide">Première collecte de référence.</p>
+          {% else %}
+            <p class="rapport-vide">Aucun changement depuis la collecte précédente.</p>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="panneau">
+      <p class="etat-vide">Aucune collecte n'est encore disponible.</p>
+    </section>
+  {% endif %}
+{% endblock %}

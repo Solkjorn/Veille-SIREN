@@ -124,6 +124,18 @@ def modifier_societe_surveillee(siren: str, *, actif: bool | None = None,
     return lire_societe_surveillee(siren, chemin)
 
 
+def activer_societe_surveillee(siren: str, chemin: Path = BASE_SQLITE
+                               ) -> SocieteSurveillee:
+    """Active une société non archivée."""
+    return modifier_societe_surveillee(siren, actif=True, chemin=chemin)
+
+
+def desactiver_societe_surveillee(siren: str, chemin: Path = BASE_SQLITE
+                                  ) -> SocieteSurveillee:
+    """Désactive une société non archivée sans l'archiver."""
+    return modifier_societe_surveillee(siren, actif=False, chemin=chemin)
+
+
 def supprimer_societe_surveillee(siren: str, chemin: Path = BASE_SQLITE
                                  ) -> SocieteSurveillee:
     """Archive une société sans détruire son historique."""
@@ -139,5 +151,25 @@ def supprimer_societe_surveillee(siren: str, chemin: Path = BASE_SQLITE
                 SET actif = 0, date_modification = ?, date_archivage = ?
                 WHERE siren = ? AND date_archivage IS NULL""",
                 (maintenant, maintenant, siren),
+            )
+    return lire_societe_surveillee(siren, chemin)
+
+
+def restaurer_societe_surveillee(siren: str, *, actif: bool = True,
+                                 chemin: Path = BASE_SQLITE
+                                 ) -> SocieteSurveillee:
+    """Restaure une société archivée et la réactive par défaut."""
+    siren = _normaliser_siren(siren)
+    existante = lire_societe_surveillee(siren, chemin)
+    if existante is None or existante.date_archivage is None:
+        raise KeyError(f"Société archivée introuvable : {siren}")
+    maintenant = datetime.now().isoformat(timespec="seconds")
+    with closing(sqlite3.connect(chemin)) as connexion:
+        with connexion:
+            connexion.execute(
+                """UPDATE societes_surveillees
+                SET actif = ?, date_modification = ?, date_archivage = NULL
+                WHERE siren = ? AND date_archivage IS NOT NULL""",
+                (int(bool(actif)), maintenant, siren),
             )
     return lire_societe_surveillee(siren, chemin)

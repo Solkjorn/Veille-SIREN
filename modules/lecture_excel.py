@@ -1,28 +1,26 @@
-from openpyxl import load_workbook
+from modules.import_excel import analyser_fichier_excel
 
 
 def lire_sirens(fichier_excel):
     """
-    Lit les SIREN du fichier Excel.
-    Retourne une liste de dictionnaires.
+    Lit et valide les SIREN du fichier Excel.
+
+    Cette fonction historique conserve son format de retour. Les nouveaux
+    usages peuvent appeler ``analyser_fichier_excel`` pour obtenir le détail
+    des erreurs avant l'import.
     """
-
-    wb = load_workbook(fichier_excel)
-    ws = wb["Societes"]
-
-    societes = []
-
-    # On commence à la ligne 2 pour ignorer les en-têtes
-    for ligne in ws.iter_rows(min_row=2, values_only=True):
-        siren, actif, commentaire = ligne
-
-        if siren is None:
-            continue
-
-        societes.append({
-            "siren": str(siren),
-            "actif": actif,
-            "commentaire": commentaire
-        })
-
-    return societes
+    apercu = analyser_fichier_excel(fichier_excel)
+    if apercu.erreurs:
+        details = "; ".join(
+            f"ligne {erreur.numero} : {erreur.message}"
+            for erreur in apercu.erreurs
+        )
+        raise ValueError(f"Fichier Excel invalide : {details}")
+    return [
+        {
+            "siren": ligne.siren,
+            "actif": ligne.actif,
+            "commentaire": ligne.commentaire,
+        }
+        for ligne in apercu.lignes
+    ]

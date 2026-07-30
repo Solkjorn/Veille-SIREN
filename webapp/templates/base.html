@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block titre %}Veille-SIREN{% endblock %}</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <header class="entete">
+      <div>
+        <p class="surtitre">Veille juridique</p>
+        <h1>Veille-SIREN</h1>
+      </div>
+      <span class="phase">Phase 3 · Interface locale</span>
+    </header>
+    <main class="contenu">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <section class="messages" aria-label="Messages">
+            {% for categorie, message in messages %}
+              <p class="message {{ categorie }}">{{ message }}</p>
+            {% endfor %}
+          </section>
+        {% endif %}
+      {% endwith %}
+      {% block contenu %}{% endblock %}
+    </main>
+    <script src="{{ url_for('static', filename='interface.js') }}"></script>
+  </body>
+</html>

@@ -120,6 +120,10 @@ def lire_derniere_collecte(
     if ligne is None:
         return None
 
+    return _convertir_collecte(ligne)
+
+
+def _convertir_collecte(ligne: sqlite3.Row) -> Societe:
     return Societe(
         siren=ligne["siren"],
         raison_sociale=ligne["raison_sociale"],
@@ -135,3 +139,26 @@ def lire_derniere_collecte(
         source=ligne["source"],
         date_collecte=datetime.fromisoformat(ligne["date_collecte"]),
     )
+
+
+def lire_collectes_societe(
+    siren: str,
+    chemin: Path = BASE_SQLITE,
+) -> list[Societe]:
+    """Retourne tout l'historique d'un SIREN, du plus ancien au plus récent."""
+    initialiser_base(chemin)
+    with closing(sqlite3.connect(chemin)) as connexion:
+        connexion.row_factory = sqlite3.Row
+        lignes = connexion.execute(
+            """
+            SELECT
+                siren, raison_sociale, forme_juridique, capital, statut,
+                adresse, dirigeant, derniere_publication_bodacc,
+                dernier_changement, source, date_collecte
+            FROM collectes
+            WHERE siren = ?
+            ORDER BY id
+            """,
+            (str(siren).strip(),),
+        ).fetchall()
+    return [_convertir_collecte(ligne) for ligne in lignes]

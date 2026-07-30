@@ -21,9 +21,21 @@ Les durées antérieures au démarrage du suivi automatique sont des estimations
 | 29/07/2026 | Pré-0.2 | Ajout de l'envoi hebdomadaire des rapports par e-mail à la feuille de route | ≈ 5 min | ≈ 3 h 50 |
 | 29/07/2026 | Pré-0.2 | Déplacement du projet vers Google Drive, réparation et assainissement du dépôt Git, recréation de l'environnement Python, tests et sauvegarde en ligne | ≈ 30 min | ≈ 4 h 20 |
 | 30/07/2026 | Pré-0.2 | Phase 1 : modèle SQLite des sociétés surveillées, services CRUD, archivage logique, prévention des doublons et source des collectes | ≈ 25 min | ≈ 4 h 45 |
+| 30/07/2026 | Pré-0.2 | Phase 1 : opérations explicites d'activation, de désactivation et de restauration après archivage, avec tests | ≈ 10 min | ≈ 4 h 55 |
+| 30/07/2026 | Pré-0.2 | Clôture de la phase 1 et début de la phase 2 : analyse, prévisualisation et import Excel transactionnel avec bilan | ≈ 20 min | ≈ 5 h 15 |
+| 30/07/2026 | Pré-0.2 | Phase 2 : consolidation des contrôles Excel, compatibilité de l'ancien lecteur et tests de l'import direct | ≈ 10 min | ≈ 5 h 25 |
+| 30/07/2026 | Pré-0.2 | Phase 2 : analyse sécurisée en mémoire des fichiers téléversés et gestion des classeurs vides ou corrompus | ≈ 10 min | ≈ 5 h 35 |
+| 30/07/2026 | Pré-0.2 | Début de la phase 3 : installation de Flask, fabrique d'application, tableau de bord et liste des sociétés | ≈ 20 min | ≈ 5 h 55 |
+| 30/07/2026 | Pré-0.2 | Phase 3 : nom des sociétés, colonne de modification et mini-rapports dépliables | ≈ 20 min | ≈ 6 h 15 |
+| 30/07/2026 | Pré-0.2 | Phase 3 : colonne « Dernière modification » fondée sur la date de publication BODACC | ≈ 5 min | ≈ 6 h 20 |
+| 30/07/2026 | Pré-0.2 | Phase 3 : mise en évidence en gras de l'objet de la dernière modification dans le mini-rapport | ≈ 5 min | ≈ 6 h 25 |
+| 30/07/2026 | Pré-0.2 | Phase 3 : gestion web des sociétés et protection des actions par jeton CSRF | ≈ 25 min | ≈ 6 h 50 |
+| 30/07/2026 | Pré-0.2 | Phase 3 : import Excel web avec prévisualisation et confirmation avant écriture | ≈ 20 min | ≈ 7 h 10 |
+| 30/07/2026 | Pré-0.2 | Phase 3 : historique web des collectes et détail des changements par société | ≈ 20 min | ≈ 7 h 30 |
+| 30/07/2026 | Pré-0.2 | Clôture de séance : rapport journalier, validation globale et sauvegarde Git | ≈ 10 min | ≈ 7 h 40 |
 
 ## Total par version
 
 | Version | Durée |
 |---|---:|
-| Pré-0.2 | ≈ 4 h 45 |
+| Pré-0.2 | ≈ 7 h 40 |

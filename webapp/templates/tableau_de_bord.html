@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block titre %}Tableau de bord · Veille-SIREN{% endblock %}
+{% block contenu %}
+  <section class="introduction">
+    <p class="surtitre">Tableau de bord</p>
+    <h2>Sociétés surveillées</h2>
+    <p>État actuel de la liste utilisée pour les collectes juridiques.</p>
+  </section>
+  <section class="panneau panneau-ajout">
+    <div class="titre-panneau"><h3>Ajouter une société</h3></div>
+    <form class="formulaire-ajout" method="post"
+          action="{{ url_for('ajouter_societe') }}">
+      <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+      <label>
+        <span>SIREN</span>
+        <input name="siren" inputmode="numeric" maxlength="9"
+               pattern="[0-9]{9}" required placeholder="123456789">
+      </label>
+      <label>
+        <span>Commentaire</span>
+        <input name="commentaire" maxlength="500"
+               placeholder="Commentaire facultatif">
+      </label>
+      <label class="case-active">
+        <input type="checkbox" name="actif" value="1" checked>
+        <span>Active</span>
+      </label>
+      <button class="bouton primaire" type="submit">Ajouter</button>
+    </form>
+  </section>
+  <section class="panneau panneau-import">
+    <div>
+      <p class="surtitre">Import Excel</p>
+      <h3>Ajouter ou actualiser une liste</h3>
+      <p>Le fichier sera contrôlé et prévisualisé avant toute modification.</p>
+    </div>
+    <form method="post" enctype="multipart/form-data"
+          action="{{ url_for('previsualiser_import') }}">
+      <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+      <label>
+        <span>Fichier .xlsx</span>
+        <input type="file" name="fichier_excel" accept=".xlsx" required>
+      </label>
+      <button class="bouton" type="submit">Prévisualiser</button>
+    </form>
+  </section>
+  <section class="indicateurs" aria-label="Indicateurs">
+    <article><strong>{{ nombre_actives }}</strong><span>Actives</span></article>
+    <article><strong>{{ nombre_inactives }}</strong><span>Inactives</span></article>
+    <article><strong>{{ nombre_archivees }}</strong><span>Archivées</span></article>
+  </section>
+  <section class="panneau">
+    <div class="titre-panneau">
+      <h3>Liste des sociétés</h3>
+      <span>{{ lignes|length }} au total</span>
+    </div>
+    {% if lignes %}
+      <div class="tableau-defilant">
+        <table>
+          <thead>
+            <tr>
+              <th>Société</th><th>État</th><th>Commentaire</th>
+              <th>Dernière modification</th><th>Mise à jour</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ligne in lignes %}
+              {% set societe = ligne.surveillance %}
+              {% set collecte = ligne.collecte %}
+              <tr>
+                <td>
+                  <button class="declencheur-rapport"
+                          type="button"
+                          aria-expanded="false"
+                          aria-controls="rapport-{{ societe.siren }}"
+                          data-cible="rapport-{{ societe.siren }}">
+                    <span class="siren">{{ societe.siren }}</span>
+                    <span class="nom-societe">
+                      {{ collecte.raison_sociale if collecte and collecte.raison_sociale
+                         else "Nom non encore collecté" }}
+                    </span>
+                    <span class="chevron" aria-hidden="true">⌄</span>
+                  </button>
+                </td>
+                <td>
+                  {% if societe.date_archivage %}
+                    <span class="badge archivee">Archivée</span>
+                  {% elif societe.actif %}
+                    <span class="badge active">Active</span>
+                  {% else %}
+                    <span class="badge inactive">Inactive</span>
+                  {% endif %}
+                </td>
+                <td>{{ societe.commentaire or "—" }}</td>
+                <td>
+                  {{ collecte.derniere_publication_bodacc
+                     if collecte and collecte.derniere_publication_bodacc
+                     else "Date inconnue" }}
+                </td>
+                <td>{{ societe.date_modification.strftime("%d/%m/%Y %H:%M") }}</td>
+              </tr>
+              <tr class="ligne-rapport"
+                  id="rapport-{{ societe.siren }}"
+                  hidden>
+                <td colspan="5">
+                  <article class="mini-rapport">
+                    <div class="entete-rapport">
+                      <div>
+                        <p class="surtitre">Mini-rapport</p>
+                        <h4>
+                          {{ collecte.raison_sociale
+                             if collecte and collecte.raison_sociale
+                             else societe.siren }}
+                        </h4>
+                      </div>
+                      {% if collecte %}
+                        <span>Collecté le
+                          {{ collecte.date_collecte.strftime("%d/%m/%Y à %H:%M") }}
+                        </span>
+                      {% endif %}
+                    </div>
+                    {% if collecte %}
+                      <dl class="grille-rapport">
+                        <div><dt>SIREN</dt><dd>{{ societe.siren }}</dd></div>
+                        <div><dt>Statut</dt><dd>{{ collecte.statut or "Non renseigné" }}</dd></div>
+                        <div><dt>Forme juridique</dt><dd>{{ collecte.forme_juridique or "Non renseignée" }}</dd></div>
+                        <div><dt>Capital</dt><dd>{{ collecte.capital or "Non renseigné" }}</dd></div>
+                        <div><dt>Adresse</dt><dd>{{ collecte.adresse or "Non renseignée" }}</dd></div>
+                        <div><dt>Dirigeant</dt><dd>{{ collecte.dirigeant or "Non renseigné" }}</dd></div>
+                        <div>
+                          <dt>Dernière publication BODACC</dt>
+                          <dd>{{ collecte.derniere_publication_bodacc or "Aucune" }}</dd>
+                        </div>
+                        <div>
+                          <dt>Dernière modification</dt>
+                          <dd>
+                            <strong class="objet-modification">
+                              {{ collecte.dernier_changement or "Aucune" }}
+                            </strong>
+                          </dd>
+                        </div>
+                      </dl>
+                    {% else %}
+                      <p class="rapport-vide">
+                        Aucune collecte n'est encore disponible pour cette société.
+                      </p>
+                    {% endif %}
+                    <div class="actions-societe">
+                      <a class="bouton lien-bouton"
+                         href="{{ url_for('historique_societe', siren=societe.siren) }}">
+                        Voir l'historique
+                      </a>
+                      {% if not societe.date_archivage %}
+                        <form class="formulaire-commentaire" method="post"
+                              action="{{ url_for('modifier_societe', siren=societe.siren) }}">
+                          <input type="hidden" name="jeton_csrf"
+                                 value="{{ jeton_csrf() }}">
+                          <label>
+                            <span>Commentaire de suivi</span>
+                            <input name="commentaire" maxlength="500"
+                                   value="{{ societe.commentaire }}">
+                          </label>
+                          <button class="bouton" type="submit">Enregistrer</button>
+                        </form>
+                        <div class="boutons-actions">
+                          {% if societe.actif %}
+                            <form method="post"
+                                  action="{{ url_for('desactiver_societe', siren=societe.siren) }}">
+                              <input type="hidden" name="jeton_csrf"
+                                     value="{{ jeton_csrf() }}">
+                              <button class="bouton" type="submit">Désactiver</button>
+                            </form>
+                          {% else %}
+                            <form method="post"
+                                  action="{{ url_for('activer_societe', siren=societe.siren) }}">
+                              <input type="hidden" name="jeton_csrf"
+                                     value="{{ jeton_csrf() }}">
+                              <button class="bouton primaire"
+                                      type="submit">Activer</button>
+                            </form>
+                          {% endif %}
+                          <form method="post"
+                                action="{{ url_for('archiver_societe', siren=societe.siren) }}">
+                            <input type="hidden" name="jeton_csrf"
+                                   value="{{ jeton_csrf() }}">
+                            <button class="bouton danger"
+                                    type="submit">Archiver</button>
+                          </form>
+                        </div>
+                      {% else %}
+                        <form method="post"
+                              action="{{ url_for('restaurer_societe', siren=societe.siren) }}">
+                          <input type="hidden" name="jeton_csrf"
+                                 value="{{ jeton_csrf() }}">
+                          <button class="bouton primaire" type="submit">
+                            Restaurer la société
+                          </button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </article>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="etat-vide">Aucune société n'est encore surveillée.</p>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -57,11 +57,13 @@ Objectif : faire de SQLite la source centrale de l'application.
 - Ajouter une table `societes_surveillees`.
 - Stocker le SIREN, l'état actif, le commentaire et les dates techniques.
 - Créer les services d'ajout, de lecture, de modification et de suppression.
+- Fournir des opérations explicites d'activation, de désactivation et de
+  restauration après archivage.
 - Définir la stratégie de suppression ou d'archivage.
 - Empêcher les doublons.
 - Utiliser cette table comme source des collectes.
 
-État : en cours. Stratégie retenue : archivage logique.
+État : terminée. Stratégie retenue : archivage logique avec restauration.
 
 ## Phase 2 — Import Excel complet
 
@@ -73,16 +75,33 @@ Objectif : faire de SQLite la source centrale de l'application.
 - Réaliser un import transactionnel.
 - Produire un bilan des ajouts, mises à jour, lignes ignorées et erreurs.
 
+État : terminée pour le service backend. L'analyse, la prévisualisation,
+l'import transactionnel et la réception en mémoire d'un fichier téléversé
+sont disponibles. Leur raccordement à l'interface est prévu en phase 3.
+
 ## Phase 3 — Interface web minimale
 
 - Créer un tableau de bord.
 - Afficher la liste des sociétés surveillées.
+- Afficher une colonne « Dernière modification » contenant la date de la
+  dernière publication BODACC.
+- Afficher un mini-rapport dépliable en cliquant sur le SIREN ou le nom d'une
+  société ; conserver dans ce rapport le détail textuel du dernier changement
+  et afficher son objet en gras pour le rendre facilement repérable.
 - Ajouter et modifier une société.
 - Activer ou désactiver une société.
 - Supprimer ou archiver une société avec confirmation.
 - Importer un fichier Excel.
 - Consulter l'historique d'une société.
 - Consulter les collectes, erreurs et rapports.
+
+État : en cours. Socle Flask retenu. Le tableau de bord et la liste des
+sociétés surveillées sont disponibles. L'ajout, la modification du
+commentaire, l'activation, la désactivation, l'archivage et la restauration
+sont accessibles depuis le tableau de bord. L'import Excel dispose d'une
+prévisualisation et d'une confirmation explicite avant écriture. L'historique
+des collectes et les changements entre deux instantanés sont consultables par
+société.
 
 ## Phase 4 — Moteur de collecte
 
