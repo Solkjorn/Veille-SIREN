@@ -27,3 +27,12 @@ class Societe:
     # Métadonnées
     source: str = ""
     date_collecte: datetime = field(default_factory=datetime.now)
+
+@dataclass
+class SocieteSurveillee:
+    siren: str
+    actif: bool = True
+    commentaire: str = ""
+    date_creation: datetime = field(default_factory=datetime.now)
+    date_modification: datetime = field(default_factory=datetime.now)
+    date_archivage: datetime | None = None

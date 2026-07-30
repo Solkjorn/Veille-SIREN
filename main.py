@@ -1,4 +1,3 @@
-from config import FICHIER_SIRENS
 from modules.base_donnees import (
     enregistrer_societe,
     initialiser_base,
@@ -7,11 +6,10 @@ from modules.base_donnees import (
 from modules.collecteur import collecter_societe
 from modules.comparaison import Changement, detecter_changements
 from modules.initialisation import creer_dossiers
-from modules.lecture_excel import lire_sirens
 from modules.logger import logger
 from modules.modele import Societe
 from modules.rapport import generer_rapport
-from modules.validation import siren_valide
+from modules.societes_surveillees import lire_societes_surveillees
 
 
 def est_active(valeur) -> bool:
@@ -71,34 +69,16 @@ def executer() -> None:
     initialiser_base()
 
     print()
-    print("Lecture du fichier Excel...")
+    print("Lecture des sociétés surveillées dans SQLite...")
 
-    societes = lire_sirens(FICHIER_SIRENS)
-    logger.info("%s société(s) trouvée(s) dans le fichier", len(societes))
-
-    print(f"{len(societes)} société(s) trouvée(s).")
+    societes = lire_societes_surveillees(actives_uniquement=True)
+    logger.info("%s société(s) active(s) trouvée(s) dans SQLite", len(societes))
+    print(f"{len(societes)} société(s) active(s) trouvée(s).")
     print()
 
-    societes_a_collecter = []
-
-    for societe_excel in societes:
-        siren = societe_excel["siren"]
-        valide = siren_valide(siren)
-        active = est_active(societe_excel["actif"])
-        etat = "[OK]" if valide else "[INVALIDE]"
-
-        print(
-            f"{etat} {siren} | "
-            f"Actif : {societe_excel['actif']} | "
-            f"Commentaire : {societe_excel['commentaire']}"
-        )
-
-        if valide and active:
-            societes_a_collecter.append(siren)
-        elif not valide:
-            logger.warning("SIREN invalide ignoré : %s", siren)
-        else:
-            logger.info("Société inactive ignorée : %s", siren)
+    societes_a_collecter = [societe.siren for societe in societes]
+    for societe in societes:
+        print(f"[OK] {societe.siren} | Commentaire : {societe.commentaire}")
 
     if not societes_a_collecter:
         logger.info("Aucune société active avec un SIREN valide")

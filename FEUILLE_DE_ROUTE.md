@@ -61,7 +61,7 @@ Objectif : faire de SQLite la source centrale de l'application.
 - Empêcher les doublons.
 - Utiliser cette table comme source des collectes.
 
-État : prochaine phase.
+État : en cours. Stratégie retenue : archivage logique.
 
 ## Phase 2 — Import Excel complet
 
