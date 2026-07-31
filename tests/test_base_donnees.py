@@ -6,9 +6,11 @@ from datetime import datetime
 from pathlib import Path
 
 from modules.base_donnees import (
+    enregistrer_etat_tache,
     enregistrer_societe,
     initialiser_base,
     lire_collectes_societe,
+    lire_collectes_recentes,
     lire_derniere_collecte,
 )
 from modules.modele import Societe
@@ -38,6 +40,28 @@ class TestBaseDonnees(unittest.TestCase):
             ).fetchone()
 
         self.assertEqual(table, ("collectes",))
+
+    def test_enregistrer_etat_tache_conserve_le_cycle_de_vie(self):
+        enregistrer_etat_tache(
+            "123456789",
+            "nouvelle_tentative",
+            tentative=1,
+            message="délai dépassé",
+            chemin=self.chemin_base,
+        )
+
+        with closing(sqlite3.connect(self.chemin_base)) as connexion:
+            ligne = connexion.execute(
+                """
+                SELECT siren, statut, tentative, message
+                FROM taches_collecte
+                """
+            ).fetchone()
+
+        self.assertEqual(
+            ligne,
+            ("123456789", "nouvelle_tentative", 1, "délai dépassé"),
+        )
 
     def test_enregistrer_societe_conserve_toutes_les_donnees(self):
         date_collecte = datetime(2026, 7, 29, 19, 30, 0)
@@ -146,6 +170,21 @@ class TestBaseDonnees(unittest.TestCase):
             [collecte.statut for collecte in historique],
             ["Active", "Radiée"],
         )
+
+    def test_lire_collectes_recentes_applique_la_limite(self):
+        enregistrer_societe(
+            Societe(siren="542051180", statut="Premier"), self.chemin_base
+        )
+        enregistrer_societe(
+            Societe(siren="552032534", statut="Deuxième"), self.chemin_base
+        )
+
+        resultat = lire_collectes_recentes(1, self.chemin_base)
+
+        self.assertEqual(len(resultat), 1)
+        self.assertEqual(resultat[0].statut, "Deuxième")
+        with self.assertRaises(ValueError):
+            lire_collectes_recentes(0, self.chemin_base)
 
 
 if __name__ == "__main__":

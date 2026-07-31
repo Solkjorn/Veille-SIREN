@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block titre %}Journal · Veille-SIREN{% endblock %}
+{% block contenu %}
+  <section class="introduction">
+    <p class="surtitre">Diagnostic</p><h2>Journal d'exécution</h2>
+    <p>Les 200 événements les plus récents, erreurs comprises.</p>
+  </section>
+  <section class="panneau journal"><pre>{% if lignes %}{{ lignes|join('\n') }}{% else %}Aucun événement enregistré.{% endif %}</pre></section>
+{% endblock %}

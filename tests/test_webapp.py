@@ -68,7 +68,10 @@ class TestApplicationWeb(unittest.TestCase):
                       "Modification du capital", "Mini-rapport"):
             self.assertIn(texte, page)
         self.assertIn("<th>Dernière modification</th>", page)
+        self.assertIn("<th>Dernière collecte</th>", page)
         self.assertIn("10/07/2026", page)
+        self.assertIn("30/07/2026 20:00", page)
+        self.assertIn("Aucune collecte", page)
         self.assertIn('class="objet-modification"', page)
         self.assertIn('id="rapport-542051180"', page)
         self.assertIn('aria-expanded="false"', page)
@@ -196,6 +199,48 @@ class TestApplicationWeb(unittest.TestCase):
             self.client.get("/societes/542051180/historique").status_code,
             404,
         )
+
+    def test_affiche_collectes_journal_et_rapports(self):
+        ajouter_societe_surveillee("542051180", chemin=self.base)
+        enregistrer_societe(
+            Societe(
+                siren="542051180",
+                raison_sociale="SOCIÉTÉ TEST",
+                statut="Active",
+                source="Pappers",
+            ),
+            self.base,
+        )
+
+        page_collectes = self.client.get("/collectes").get_data(as_text=True)
+        page_journal = self.client.get("/journal").get_data(as_text=True)
+        page_rapports = self.client.get("/rapports").get_data(as_text=True)
+
+        self.assertIn("Dernières collectes", page_collectes)
+        self.assertIn("SOCIÉTÉ TEST", page_collectes)
+        self.assertIn("Journal d'exécution", page_journal)
+        self.assertIn("Rapports disponibles", page_rapports)
+        self.assertIn("developpement_20260730.md", page_rapports)
+
+    def test_consulte_et_telecharge_un_rapport_sans_traversee_de_chemin(self):
+        consultation = self.client.get(
+            "/rapports/developpement_20260730.md"
+        )
+        telechargement = self.client.get(
+            "/rapports/developpement_20260730.md/telecharger"
+        )
+
+        self.assertEqual(consultation.status_code, 200)
+        self.assertIn("Rapport journalier", consultation.get_data(as_text=True))
+        self.assertEqual(telechargement.status_code, 200)
+        self.assertIn("attachment", telechargement.headers["Content-Disposition"])
+        telechargement.close()
+        self.assertEqual(self.client.get("/rapports/inconnu.txt").status_code, 404)
+
+    def test_formulaire_d_archivage_demande_confirmation(self):
+        ajouter_societe_surveillee("542051180", chemin=self.base)
+        page = self.client.get("/").get_data(as_text=True)
+        self.assertIn('data-confirmation="Archiver cette société ?', page)
 
 
 if __name__ == "__main__":

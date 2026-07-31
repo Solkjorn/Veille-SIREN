@@ -23,6 +23,15 @@ body {
   color: white;
   background: #173f35;
 }
+.navigation-principale {
+  display: flex;
+  gap: 22px;
+  padding: 12px max(24px, calc((100vw - 1180px) / 2));
+  border-bottom: 1px solid var(--ligne);
+  background: var(--surface);
+}
+.navigation-principale a { color: var(--encre); font-weight: 700; text-decoration: none; }
+.navigation-principale a:hover { color: var(--vert); }
 h1, h2, h3, p { margin-top: 0; }
 h1 { margin-bottom: 0; font-size: 1.5rem; }
 .surtitre {
@@ -255,6 +264,27 @@ tbody tr:last-child td { border-bottom: 0; }
   padding-top: 10px;
   border-top: 1px solid var(--ligne);
 }
+.journal pre, .rapport-brut pre {
+  margin: 0;
+  padding: 22px 24px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: .84rem/1.6 "Cascadia Mono", Consolas, monospace;
+}
+.journal pre { max-height: 620px; color: #d8eee6; background: #122b25; }
+.liste-rapports article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ligne);
+}
+.liste-rapports article:last-child { border-bottom: 0; }
+.liste-rapports article > div:first-child { display: grid; gap: 4px; }
+.liste-rapports article span { color: var(--secondaire); font-size: .78rem; }
+.panneau table a { color: var(--vert); font-weight: 700; }
 .ancienne-valeur { color: #8d3028; text-decoration: line-through; }
 .nouvelle-valeur { color: var(--vert); font-weight: 750; }
 .badge {
@@ -270,6 +300,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .etat-vide { margin: 0; padding: 42px 24px; color: var(--secondaire); text-align: center; }
 @media (max-width: 680px) {
   .phase { display: none; }
+  .navigation-principale { gap: 14px; overflow-x: auto; }
   .contenu { width: min(100% - 28px, 1180px); margin-top: 28px; }
   .indicateurs { grid-template-columns: 1fr; }
   th, td { padding: 14px 16px; }
@@ -280,4 +311,5 @@ tbody tr:last-child td { border-bottom: 0; }
   .actions-societe, .boutons-actions { align-items: stretch; flex-direction: column; }
   .formulaire-commentaire { grid-template-columns: 1fr; }
   .liste-changements div { grid-template-columns: 1fr; }
+  .liste-rapports article { align-items: stretch; flex-direction: column; }
 }

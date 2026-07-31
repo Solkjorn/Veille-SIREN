@@ -46,9 +46,10 @@ Le socle technique disponible comprend :
 - la comparaison entre deux collectes ;
 - la détection et l'affichage des changements ;
 - la génération de rapports Markdown ;
-- une suite de 29 tests automatisés ;
-- un dépôt de travail déplacé dans Google Drive et synchronisé avec GitHub ;
-- un environnement Python local séparé du dossier synchronisé.
+- une suite de plus de 50 tests automatisés ;
+- un dépôt de travail local dans `D:\Documents\Projets\Veille-SIREN`,
+  synchronisé avec GitHub ;
+- un environnement Python local séparé du dépôt.
 
 ## Phase 1 — Modèle des sociétés surveillées
 
@@ -85,6 +86,9 @@ sont disponibles. Leur raccordement à l'interface est prévu en phase 3.
 - Afficher la liste des sociétés surveillées.
 - Afficher une colonne « Dernière modification » contenant la date de la
   dernière publication BODACC.
+- Afficher une colonne « Dernière collecte » contenant la date et l'heure du
+  dernier instantané enregistré, distincte de la modification de la fiche de
+  surveillance.
 - Afficher un mini-rapport dépliable en cliquant sur le SIREN ou le nom d'une
   société ; conserver dans ce rapport le détail textuel du dernier changement
   et afficher son objet en gras pour le rendre facilement repérable.
@@ -95,13 +99,18 @@ sont disponibles. Leur raccordement à l'interface est prévu en phase 3.
 - Consulter l'historique d'une société.
 - Consulter les collectes, erreurs et rapports.
 
-État : en cours. Socle Flask retenu. Le tableau de bord et la liste des
+État : terminée. Socle Flask retenu. Le tableau de bord et la liste des
 sociétés surveillées sont disponibles. L'ajout, la modification du
 commentaire, l'activation, la désactivation, l'archivage et la restauration
 sont accessibles depuis le tableau de bord. L'import Excel dispose d'une
 prévisualisation et d'une confirmation explicite avant écriture. L'historique
 des collectes et les changements entre deux instantanés sont consultables par
-société.
+société. Les collectes récentes, le journal d'exécution et les rapports sont
+consultables depuis la navigation principale. Le tableau de bord affiche la
+date et l'heure de la dernière collecte réussie pour chaque société.
+L'archivage demande une confirmation visible. L'ensemble du périmètre prévu
+pour cette phase est couvert par les tests automatisés et a fait l'objet d'un
+contrôle visuel local.
 
 ## Phase 4 — Moteur de collecte
 
@@ -112,6 +121,21 @@ société.
 - Ajouter des tentatives en cas d'erreur temporaire.
 - Empêcher les collectes simultanées d'un même SIREN.
 - Préparer l'ajout d'autres sources.
+
+État : terminée. Une même session Chromium est désormais réutilisée pour
+plusieurs sociétés, avec une page isolée et systématiquement fermée par SIREN.
+Les modes visible et sans interface sont disponibles. Le cycle de vie des
+tâches est enregistré dans SQLite, les erreurs temporaires déclenchent une
+nouvelle tentative limitée et un verrou empêche deux collectes simultanées du
+même SIREN. Le moteur dépend maintenant d'un contrat de source indépendant ;
+Pappers en est la première implémentation et d'autres sources pourront être
+ajoutées sans modifier son cycle d'exécution. Les adaptateurs INSEE, INPI et
+BODACC sont maintenant disponibles. BODACC fonctionne sans identifiant.
+L'application « Veille SIREN » est créée sur le portail INSEE, sa souscription
+à API Sirene 3.11 est active et la collecte réelle a été validée. Sa clé est
+chiffrée avec Windows DPAPI, liée au compte Windows courant et conservée hors
+du dépôt ; une variable d'environnement reste possible en remplacement. INPI
+attend encore l'activation de l'accès API du compte.
 
 ## Phase 5 — Rapports HTML
 
@@ -131,6 +155,7 @@ Le Markdown peut rester disponible comme format secondaire.
 Créer des rapports distincts des rapports de veille contenant :
 
 - la date ;
+- l'heure de début et l'heure de fin de chaque session ;
 - le temps passé ;
 - les travaux réalisés ;
 - les modules concernés ;

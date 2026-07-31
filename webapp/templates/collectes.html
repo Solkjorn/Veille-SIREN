@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titre %}Collectes · Veille-SIREN{% endblock %}
+{% block contenu %}
+  <section class="introduction">
+    <p class="surtitre">Suivi opérationnel</p>
+    <h2>Dernières collectes</h2>
+    <p>Les 100 instantanés les plus récents, toutes sociétés confondues.</p>
+  </section>
+  <section class="panneau">
+    {% if collectes %}
+      <div class="tableau-defilant">
+        <table>
+          <thead><tr><th>Date</th><th>Société</th><th>Statut</th><th>Source</th><th>Modification</th></tr></thead>
+          <tbody>
+            {% for collecte in collectes %}
+              <tr>
+                <td>{{ collecte.date_collecte.strftime("%d/%m/%Y %H:%M") }}</td>
+                <td><a href="{{ url_for('historique_societe', siren=collecte.siren) }}">{{ collecte.raison_sociale or collecte.siren }}</a></td>
+                <td>{{ collecte.statut or "—" }}</td>
+                <td>{{ collecte.source or "—" }}</td>
+                <td>{{ collecte.dernier_changement or "Aucune" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}<p class="etat-vide">Aucune collecte enregistrée.</p>{% endif %}
+  </section>
+{% endblock %}

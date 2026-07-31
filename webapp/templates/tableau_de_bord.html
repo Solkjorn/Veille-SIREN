@@ -60,7 +60,7 @@
           <thead>
             <tr>
               <th>Société</th><th>État</th><th>Commentaire</th>
-              <th>Dernière modification</th><th>Mise à jour</th>
+              <th>Dernière modification</th><th>Dernière collecte</th>
             </tr>
           </thead>
           <tbody>
@@ -97,7 +97,10 @@
                      if collecte and collecte.derniere_publication_bodacc
                      else "Date inconnue" }}
                 </td>
-                <td>{{ societe.date_modification.strftime("%d/%m/%Y %H:%M") }}</td>
+                <td>
+                  {{ collecte.date_collecte.strftime("%d/%m/%Y %H:%M")
+                     if collecte else "Aucune collecte" }}
+                </td>
               </tr>
               <tr class="ligne-rapport"
                   id="rapport-{{ societe.siren }}"
@@ -180,6 +183,7 @@
                             </form>
                           {% endif %}
                           <form method="post"
+                                data-confirmation="Archiver cette société ? Elle ne sera plus collectée."
                                 action="{{ url_for('archiver_societe', siren=societe.siren) }}">
                             <input type="hidden" name="jeton_csrf"
                                    value="{{ jeton_csrf() }}">

@@ -25,6 +25,18 @@ CREATE TABLE IF NOT EXISTS collectes (
 
 CREATE INDEX IF NOT EXISTS index_collectes_siren_date
 ON collectes (siren, date_collecte);
+
+CREATE TABLE IF NOT EXISTS taches_collecte (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    siren TEXT NOT NULL,
+    statut TEXT NOT NULL,
+    tentative INTEGER NOT NULL,
+    message TEXT NOT NULL,
+    date_evenement TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS index_taches_collecte_siren_date
+ON taches_collecte (siren, date_evenement);
 """
 
 
@@ -162,3 +174,55 @@ def lire_collectes_societe(
             (str(siren).strip(),),
         ).fetchall()
     return [_convertir_collecte(ligne) for ligne in lignes]
+
+
+def lire_collectes_recentes(
+    limite: int = 100,
+    chemin: Path = BASE_SQLITE,
+) -> list[Societe]:
+    """Retourne les dernières collectes, toutes sociétés confondues."""
+    if limite < 1:
+        raise ValueError("La limite doit être positive")
+    initialiser_base(chemin)
+    with closing(sqlite3.connect(chemin)) as connexion:
+        connexion.row_factory = sqlite3.Row
+        lignes = connexion.execute(
+            """
+            SELECT
+                siren, raison_sociale, forme_juridique, capital, statut,
+                adresse, dirigeant, derniere_publication_bodacc,
+                dernier_changement, source, date_collecte
+            FROM collectes
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limite,),
+        ).fetchall()
+    return [_convertir_collecte(ligne) for ligne in lignes]
+
+
+def enregistrer_etat_tache(
+    siren: str,
+    statut: str,
+    tentative: int = 1,
+    message: str = "",
+    chemin: Path = BASE_SQLITE,
+) -> None:
+    """Conserve un événement du cycle de vie d'une tâche de collecte."""
+    initialiser_base(chemin)
+    with closing(sqlite3.connect(chemin)) as connexion:
+        with connexion:
+            connexion.execute(
+                """
+                INSERT INTO taches_collecte (
+                    siren, statut, tentative, message, date_evenement
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    str(siren).strip(),
+                    statut,
+                    tentative,
+                    message,
+                    datetime.now().isoformat(timespec="seconds"),
+                ),
+            )

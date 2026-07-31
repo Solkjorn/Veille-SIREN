@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block titre %}Rapports · Veille-SIREN{% endblock %}
+{% block contenu %}
+  <section class="introduction">
+    <p class="surtitre">Archives</p><h2>Rapports disponibles</h2>
+    <p>Rapports de veille et rapports journaliers de développement.</p>
+  </section>
+  <section class="panneau liste-rapports">
+    {% if fichiers %}
+      {% for fichier in fichiers %}
+        <article>
+          <div><strong>{{ fichier.name }}</strong><span>{{ fichier.stat().st_size }} octets</span></div>
+          <div class="boutons-actions">
+            <a class="bouton lien-bouton" href="{{ url_for('consulter_rapport', nom_fichier=fichier.name) }}">Consulter</a>
+            <a class="bouton lien-bouton" href="{{ url_for('telecharger_rapport', nom_fichier=fichier.name) }}">Télécharger</a>
+          </div>
+        </article>
+      {% endfor %}
+    {% else %}<p class="etat-vide">Aucun rapport disponible.</p>{% endif %}
+  </section>
+{% endblock %}

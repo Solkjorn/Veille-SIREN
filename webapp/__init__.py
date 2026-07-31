@@ -4,16 +4,22 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from flask import (
-    Flask, abort, flash, redirect, render_template, request, session, url_for,
+    Flask, abort, flash, redirect, render_template, request, send_file,
+    session, url_for,
 )
 
-from config import BASE_SQLITE
-from modules.base_donnees import lire_collectes_societe, lire_derniere_collecte
+from config import BASE_SQLITE, DOSSIER_RAPPORTS
+from modules.base_donnees import (
+    lire_collectes_recentes,
+    lire_collectes_societe,
+    lire_derniere_collecte,
+)
 from modules.comparaison import detecter_changements
 from modules.import_excel import (
     analyser_televersement_excel,
     importer_apercu,
 )
+from modules.logger import FICHIER_LOG
 from modules.societes_surveillees import (
     activer_societe_surveillee,
     ajouter_societe_surveillee,
@@ -233,5 +239,52 @@ def creer_application(configuration: dict | None = None) -> Flask:
             surveillance=surveillance,
             historique=historique,
         )
+
+    @application.get("/collectes")
+    def collectes():
+        return render_template(
+            "collectes.html",
+            collectes=lire_collectes_recentes(100, chemin_base()),
+        )
+
+    @application.get("/journal")
+    def journal():
+        lignes = []
+        if FICHIER_LOG.is_file():
+            lignes = FICHIER_LOG.read_text(
+                encoding="utf-8", errors="replace"
+            ).splitlines()[-200:]
+        return render_template("journal.html", lignes=lignes)
+
+    @application.get("/rapports")
+    def rapports():
+        fichiers = sorted(
+            DOSSIER_RAPPORTS.glob("*.md"),
+            key=lambda fichier: fichier.stat().st_mtime,
+            reverse=True,
+        )
+        return render_template("rapports.html", fichiers=fichiers)
+
+    @application.get("/rapports/<nom_fichier>")
+    def consulter_rapport(nom_fichier: str):
+        chemin = DOSSIER_RAPPORTS / Path(nom_fichier).name
+        if nom_fichier != chemin.name or chemin.suffix.casefold() != ".md":
+            abort(404)
+        if not chemin.is_file():
+            abort(404)
+        return render_template(
+            "rapport.html",
+            nom_fichier=chemin.name,
+            contenu=chemin.read_text(encoding="utf-8", errors="replace"),
+        )
+
+    @application.get("/rapports/<nom_fichier>/telecharger")
+    def telecharger_rapport(nom_fichier: str):
+        chemin = DOSSIER_RAPPORTS / Path(nom_fichier).name
+        if nom_fichier != chemin.name or chemin.suffix.casefold() != ".md":
+            abort(404)
+        if not chemin.is_file():
+            abort(404)
+        return send_file(chemin, as_attachment=True, download_name=chemin.name)
 
     return application

@@ -3,13 +3,14 @@ from modules.base_donnees import (
     initialiser_base,
     lire_derniere_collecte,
 )
-from modules.collecteur import collecter_societe
+from modules.collecteur import CollecteurSocietes
 from modules.comparaison import Changement, detecter_changements
 from modules.initialisation import creer_dossiers
 from modules.logger import logger
 from modules.modele import Societe
 from modules.rapport import generer_rapport
 from modules.societes_surveillees import lire_societes_surveillees
+from modules.sources import SOURCES_DISPONIBLES, creer_source
 
 
 def est_active(valeur) -> bool:
@@ -54,7 +55,7 @@ def afficher_changements(changements: list[Changement]) -> None:
         print(f"{changement.libelle} : {ancienne} -> {nouvelle}")
 
 
-def executer() -> None:
+def executer(sans_interface: bool = False, source: str = "pappers") -> None:
     """
     Lance la veille pour toutes les sociétés actives et valides du fichier.
     """
@@ -88,39 +89,44 @@ def executer() -> None:
 
     resultats = []
 
-    for siren in societes_a_collecter:
-        logger.info("Début de la collecte du SIREN %s", siren)
-        print()
-        print(f"Lecture de la société portant le SIREN {siren}...")
+    with CollecteurSocietes(
+        sans_interface=sans_interface,
+        tentatives=2,
+        source=creer_source(source),
+    ) as collecteur:
+        for siren in societes_a_collecter:
+            logger.info("Début de la collecte du SIREN %s", siren)
+            print()
+            print(f"Lecture de la société portant le SIREN {siren}...")
 
-        try:
-            societe_collectee = collecter_societe(siren)
+            try:
+                societe_collectee = collecteur.collecter(siren)
 
-        except Exception as erreur:
-            logger.exception("Échec de la collecte du SIREN %s", siren)
-            print(f"Échec de la collecte du SIREN {siren} : {erreur}")
-            continue
+            except Exception as erreur:
+                logger.exception("Échec de la collecte du SIREN %s", siren)
+                print(f"Échec de la collecte du SIREN {siren} : {erreur}")
+                continue
 
-        logger.info("Collecte du SIREN %s terminée avec succès", siren)
-        ancienne_collecte = lire_derniere_collecte(siren)
-        changements = detecter_changements(
-            ancienne_collecte,
-            societe_collectee,
-        )
-        enregistrer_societe(societe_collectee)
-        logger.info("Collecte du SIREN %s enregistrée dans SQLite", siren)
-        afficher_societe(societe_collectee)
-        afficher_changements(changements)
-        resultats.append((societe_collectee, changements))
-
-        for changement in changements:
-            logger.warning(
-                "Changement pour %s - %s : %r -> %r",
-                siren,
-                changement.libelle,
-                changement.ancienne_valeur,
-                changement.nouvelle_valeur,
+            logger.info("Collecte du SIREN %s terminée avec succès", siren)
+            ancienne_collecte = lire_derniere_collecte(siren)
+            changements = detecter_changements(
+                ancienne_collecte,
+                societe_collectee,
             )
+            enregistrer_societe(societe_collectee)
+            logger.info("Collecte du SIREN %s enregistrée dans SQLite", siren)
+            afficher_societe(societe_collectee)
+            afficher_changements(changements)
+            resultats.append((societe_collectee, changements))
+
+            for changement in changements:
+                logger.warning(
+                    "Changement pour %s - %s : %r -> %r",
+                    siren,
+                    changement.libelle,
+                    changement.ancienne_valeur,
+                    changement.nouvelle_valeur,
+                )
 
     if resultats:
         chemin_rapport = generer_rapport(resultats)
@@ -132,4 +138,22 @@ def executer() -> None:
 
 
 if __name__ == "__main__":
-    executer()
+    import argparse
+
+    analyseur = argparse.ArgumentParser()
+    analyseur.add_argument(
+        "--sans-interface",
+        action="store_true",
+        help="Exécute Chromium sans fenêtre visible.",
+    )
+    analyseur.add_argument(
+        "--source",
+        choices=SOURCES_DISPONIBLES,
+        default="pappers",
+        help="Source juridique utilisée pour la collecte.",
+    )
+    arguments = analyseur.parse_args()
+    executer(
+        sans_interface=arguments.sans_interface,
+        source=arguments.source,
+    )

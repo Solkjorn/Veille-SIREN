@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block titre %}{{ nom_fichier }} · Veille-SIREN{% endblock %}
+{% block contenu %}
+  <nav class="fil-ariane"><a href="{{ url_for('rapports') }}">Rapports</a><span>›</span><span>{{ nom_fichier }}</span></nav>
+  <section class="introduction"><p class="surtitre">Rapport Markdown</p><h2>{{ nom_fichier }}</h2></section>
+  <section class="panneau rapport-brut"><pre>{{ contenu }}</pre></section>
+{% endblock %}

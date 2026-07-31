@@ -2,6 +2,29 @@
 
 Les durées antérieures au démarrage du suivi automatique sont des estimations.
 
+## Sessions de développement
+
+Les heures des sessions des 28, 29 et 30 juillet ont été reconstituées à
+partir des durées suivies et des commits de clôture. Elles sont donc
+approximatives. À partir de maintenant, les heures de début et de fin sont
+relevées directement.
+
+Les périodes de travail d'une même journée sont regroupées dans une seule
+session lorsque l'interruption entre elles est strictement inférieure à
+30 minutes. Une interruption supérieure ou égale à 30 minutes ouvre une
+nouvelle session. La durée correspond à la somme du temps réellement travaillé
+et n'inclut pas les interruptions.
+
+| Session | Date | Heure de début | Heure de fin | Durée | Précision |
+|---|---|---:|---:|---:|---|
+| 1 | 28/07/2026 | ≈ 17:57 | 19:32 | ≈ 1 h 35 | Reconstituée |
+| 2 | 29/07/2026 | ≈ 17:36 | 20:21 | ≈ 2 h 45 | Reconstituée |
+| 3 | 30/07/2026 | ≈ 16:12 | 19:36 | ≈ 3 h 21 | Mixte |
+| 4 | 31/07/2026 | 17:36 | 18:53 | ≈ 1 h 15 | Relevée |
+| 5 | 31/07/2026 | 19:28 | 19:36 | ≈ 8 min | Relevée |
+
+## Détail des travaux
+
 | Date | Version | Travail réalisé | Durée | Cumul |
 |---|---|---|---:|---:|
 | 28/07/2026 | Pré-0.2 | Git, branches, nettoyage, refactorisation Pappers, forme juridique, capital et adresse | ≈ 1 h 20 | ≈ 1 h 20 |
@@ -33,9 +56,19 @@ Les durées antérieures au démarrage du suivi automatique sont des estimations
 | 30/07/2026 | Pré-0.2 | Phase 3 : import Excel web avec prévisualisation et confirmation avant écriture | ≈ 20 min | ≈ 7 h 10 |
 | 30/07/2026 | Pré-0.2 | Phase 3 : historique web des collectes et détail des changements par société | ≈ 20 min | ≈ 7 h 30 |
 | 30/07/2026 | Pré-0.2 | Clôture de séance : rapport journalier, validation globale et sauvegarde Git | ≈ 10 min | ≈ 7 h 40 |
+| 30/07/2026 | Pré-0.2 | Amélioration du suivi avec les dates et heures de début et de fin des sessions | ≈ 1 min | ≈ 7 h 41 |
+| 31/07/2026 | Pré-0.2 | Phase 3 : consultation des collectes, du journal et des rapports, confirmation d'archivage, tests et contrôle visuel | ≈ 7 min | ≈ 7 h 48 |
+| 31/07/2026 | Pré-0.2 | Nettoyage du dépôt : retrait des caches compilés suivis, de l'environnement incomplet et d'un ancien script manuel | ≈ 2 min | ≈ 7 h 50 |
+| 31/07/2026 | Pré-0.2 | Phase 4 : navigateur mutualisé, modes visible et sans interface, suivi SQLite des tâches, nouvelles tentatives et verrouillage par SIREN | ≈ 4 min | ≈ 7 h 54 |
+| 31/07/2026 | Pré-0.2 | Regroupement des sessions quotidiennes séparées par moins de 30 minutes | ≈ 3 min | ≈ 7 h 57 |
+| 31/07/2026 | Pré-0.2 | Phase 4 : abstraction du contrat des sources de collecte et implémentation Pappers indépendante | ≈ 2 min | ≈ 7 h 59 |
+| 31/07/2026 | Pré-0.2 | Phase 4 : ajout des sources officielles INSEE, INPI et BODACC, configuration sécurisée, tests et validation BODACC réelle | ≈ 6 min | ≈ 8 h 05 |
+| 31/07/2026 | Pré-0.2 | Diagnostic réel de l'authentification INPI et identification de l'activation d'accès API manquante | ≈ 6 min | ≈ 8 h 11 |
+| 31/07/2026 | Pré-0.2 | Création de l'application INSEE, souscription à API Sirene 3.11, stockage DPAPI de la clé et validation réelle de la collecte | ≈ 45 min | ≈ 8 h 56 |
+| 31/07/2026 | Pré-0.2 | Tableau de bord : remplacement de la date de modification de la fiche par l'horodatage explicite de la dernière collecte, validation et clôture | ≈ 8 min | ≈ 9 h 04 |
 
 ## Total par version
 
 | Version | Durée |
 |---|---:|
-| Pré-0.2 | ≈ 7 h 40 |
+| Pré-0.2 | ≈ 9 h 04 |

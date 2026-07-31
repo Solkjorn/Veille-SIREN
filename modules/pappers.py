@@ -142,40 +142,40 @@ def lire_pappers(siren: str) -> Societe:
     et retourne un objet Societe.
     """
 
-    url = f"https://www.pappers.fr/entreprise/{siren}"
-
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=False)
 
         try:
             page = browser.new_page()
-
-            print(f"\nOuverture de : {url}")
-
-            page.goto(
-                url,
-                wait_until="domcontentloaded",
-                timeout=DELAI_NAVIGATION_MS,
-            )
-            page.locator("h1.big-text").wait_for(
-                state="visible",
-                timeout=DELAI_NAVIGATION_MS,
-            )
-
-            return Societe(
-                siren=siren,
-                raison_sociale=lire_nom(page),
-                forme_juridique=lire_champ(page, "Forme juridique"),
-                capital=lire_champ(page, "Capital social"),
-                statut=lire_statut(page),
-                adresse=lire_champ(page, "Adresse"),
-                dirigeant=lire_dirigeants(page),
-                derniere_publication_bodacc=(
-                    lire_derniere_publication_bodacc(page)
-                ),
-                dernier_changement=lire_dernier_changement(page),
-                source="Pappers",
-            )
+            return lire_pappers_avec_page(siren, page)
 
         finally:
             browser.close()
+
+
+def lire_pappers_avec_page(siren: str, page: Page) -> Societe:
+    """Collecte une société avec une page fournie par le moteur de collecte."""
+    url = f"https://www.pappers.fr/entreprise/{siren}"
+    print(f"\nOuverture de : {url}")
+    page.goto(
+        url,
+        wait_until="domcontentloaded",
+        timeout=DELAI_NAVIGATION_MS,
+    )
+    page.locator("h1.big-text").wait_for(
+        state="visible",
+        timeout=DELAI_NAVIGATION_MS,
+    )
+
+    return Societe(
+        siren=siren,
+        raison_sociale=lire_nom(page),
+        forme_juridique=lire_champ(page, "Forme juridique"),
+        capital=lire_champ(page, "Capital social"),
+        statut=lire_statut(page),
+        adresse=lire_champ(page, "Adresse"),
+        dirigeant=lire_dirigeants(page),
+        derniere_publication_bodacc=lire_derniere_publication_bodacc(page),
+        dernier_changement=lire_dernier_changement(page),
+        source="Pappers",
+    )

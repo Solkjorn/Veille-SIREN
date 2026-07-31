@@ -6,3 +6,11 @@ document.querySelectorAll(".declencheur-rapport").forEach((bouton) => {
     rapport.hidden = ouvert;
   });
 });
+
+document.querySelectorAll("form[data-confirmation]").forEach((formulaire) => {
+  formulaire.addEventListener("submit", (evenement) => {
+    if (!window.confirm(formulaire.dataset.confirmation)) {
+      evenement.preventDefault();
+    }
+  });
+});
