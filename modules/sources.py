@@ -6,7 +6,7 @@ from playwright.sync_api import Page
 from modules.client_http import ErreurAPI, requete_json
 from modules.modele import Societe
 from modules.pappers import lire_pappers_avec_page
-from modules.secrets_windows import lire_cle_insee
+from modules.secrets_windows import lire_cle_insee, lire_identifiants_inpi
 
 
 class ConfigurationSourceInvalide(RuntimeError):
@@ -77,17 +77,24 @@ class SourceINPI:
         identifiant: str | None = None,
         mot_de_passe: str | None = None,
     ):
-        self.identifiant = identifiant or os.getenv("VEILLE_SIREN_INPI_USER", "")
-        self.mot_de_passe = mot_de_passe or os.getenv(
-            "VEILLE_SIREN_INPI_PASSWORD", ""
+        identifiant_coffre, mot_de_passe_coffre = lire_identifiants_inpi()
+        self.identifiant = (
+            identifiant
+            or os.getenv("VEILLE_SIREN_INPI_USER", "")
+            or identifiant_coffre
+        )
+        self.mot_de_passe = (
+            mot_de_passe
+            or os.getenv("VEILLE_SIREN_INPI_PASSWORD", "")
+            or mot_de_passe_coffre
         )
         self._jeton = ""
 
     def _authentifier(self) -> str:
         if not self.identifiant or not self.mot_de_passe:
             raise ConfigurationSourceInvalide(
-                "INPI requiert VEILLE_SIREN_INPI_USER et "
-                "VEILLE_SIREN_INPI_PASSWORD."
+                "INPI requiert des identifiants dans le coffre Windows ou "
+                "VEILLE_SIREN_INPI_USER et VEILLE_SIREN_INPI_PASSWORD."
             )
         reponse = requete_json(
             f"{self.url_base}/sso/login",
@@ -107,7 +114,8 @@ class SourceINPI:
             f"{self.url_base}/companies/{quote(siren)}",
             {"Authorization": f"Bearer {jeton}"},
         )
-        contenu = donnees.get("content", donnees)
+        formalite = donnees.get("formality", donnees)
+        contenu = formalite.get("content", formalite)
         identite = contenu.get("personneMorale", {}).get("identite", {})
         entreprise = identite.get("entreprise", identite)
         denomination = entreprise.get("denomination", "")

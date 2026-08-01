@@ -2,7 +2,8 @@
 
 ## Temps
 
-- Temps consacré à la séance : environ 3 h 20.
+- Session reconstituée puis relevée : environ 16:12–19:36, soit environ
+  3 h 21.
 - Temps total cumulé : environ 7 h 40.
 
 ## Travaux réalisés
@@ -29,6 +30,16 @@
 - Consultation de l'historique des collectes et des changements par société.
 - Mise à jour de la feuille de route et du suivi du temps.
 
+## Modules concernés
+
+- `main.py`
+- `modules/societes_surveillees.py`
+- `modules/import_excel.py`
+- `modules/base_donnees.py`
+- `webapp/`
+- `tests/`
+- `requirements.txt`
+
 ## Vérifications
 
 - 51 tests automatisés exécutés avec succès.
@@ -54,7 +65,8 @@
 
 ## Commit associé
 
-- Commit de clôture de la séance du 30/07/2026 sur la branche `develop`.
+- `03a37f0` — commencement du modèle SQLite des sociétés surveillées.
+- `cf7d887` — ajout de la gestion web des sociétés.
 
 ## Prochaine étape
 

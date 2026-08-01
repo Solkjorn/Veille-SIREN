@@ -21,7 +21,8 @@ et n'inclut pas les interruptions.
 | 2 | 29/07/2026 | ≈ 17:36 | 20:21 | ≈ 2 h 45 | Reconstituée |
 | 3 | 30/07/2026 | ≈ 16:12 | 19:36 | ≈ 3 h 21 | Mixte |
 | 4 | 31/07/2026 | 17:36 | 18:53 | ≈ 1 h 15 | Relevée |
-| 5 | 31/07/2026 | 19:28 | 19:36 | ≈ 8 min | Relevée |
+| 5 | 31/07/2026 | 19:28 | 19:48 | ≈ 15 min | Relevée |
+| 6 | 01/08/2026 | 12:42 | 14:11 | ≈ 1 h 29 | Relevée |
 
 ## Détail des travaux
 
@@ -66,9 +67,25 @@ et n'inclut pas les interruptions.
 | 31/07/2026 | Pré-0.2 | Diagnostic réel de l'authentification INPI et identification de l'activation d'accès API manquante | ≈ 6 min | ≈ 8 h 11 |
 | 31/07/2026 | Pré-0.2 | Création de l'application INSEE, souscription à API Sirene 3.11, stockage DPAPI de la clé et validation réelle de la collecte | ≈ 45 min | ≈ 8 h 56 |
 | 31/07/2026 | Pré-0.2 | Tableau de bord : remplacement de la date de modification de la fiche par l'horodatage explicite de la dernière collecte, validation et clôture | ≈ 8 min | ≈ 9 h 04 |
+| 31/07/2026 | Pré-0.2 | Déplacement de l'import Excel vers une page « Imports » dédiée et planification de la validation INPI | ≈ 7 min | ≈ 9 h 11 |
+| 01/08/2026 | Pré-0.2 | Coffre Windows DPAPI pour les identifiants INPI, chargement automatique, documentation et tests | ≈ 3 min | ≈ 9 h 14 |
+| 01/08/2026 | Pré-0.2 | Test réel INPI : coffre validé, authentification refusée en HTTP 401 et diagnostic de l'accès API | ≈ 3 min | ≈ 9 h 17 |
+| 01/08/2026 | Pré-0.2 | Nouveau test INPI : identifiants acceptés mais type de connexion API non autorisé en HTTP 403 | ≈ 2 min | ≈ 9 h 19 |
+| 01/08/2026 | Pré-0.2 | Activation de l'accès API RNE, adaptation à la réponse JSON réelle et validation complète de la collecte INPI | ≈ 9 min | ≈ 9 h 28 |
+| 01/08/2026 | Pré-0.2 | Phase 5 : rapport HTML principal, Markdown secondaire, synthèse d'exécution, changements avant/après et consultation web | ≈ 6 min | ≈ 9 h 34 |
+| 01/08/2026 | Pré-0.2 | Phase 5 : synthèse hebdomadaire HTML depuis SQLite, comparaison sur sept jours, erreurs et commande dédiée | ≈ 8 min | ≈ 9 h 42 |
+| 01/08/2026 | Pré-0.2 | Clôture de la phase 5 : conservation 365 jours avec nettoyage ciblé et protection illimitée des rapports de développement | ≈ 18 min | ≈ 10 h 00 |
+| 01/08/2026 | Pré-0.2 | Phase 6 : harmonisation des rapports de développement, contrôle automatique et cadrage initial de Notion | ≈ 3 min | ≈ 10 h 03 |
+| 01/08/2026 | Pré-0.2 | Phase 7 : création de la base Notion des rapports de veille, cibles SQLite et registre anti-doublon | ≈ 3 min | ≈ 10 h 06 |
+| 01/08/2026 | Pré-0.2 | Nettoyage Notion : simplification du Journal et des vues Veille-SIREN sans suppression de contenu | ≈ 3 min | ≈ 10 h 09 |
+| 01/08/2026 | Pré-0.2 | Centralisation des comptes rendus dans « Journal de travail » et retrait des anciennes bases Notion de démonstration | ≈ 3 min | ≈ 10 h 12 |
+| 01/08/2026 | Pré-0.2 | Phase 7 : coffre DPAPI Notion, client HTTP, publication quotidienne, anti-doublon et tolérance aux erreurs | ≈ 7 min | ≈ 10 h 19 |
+| 01/08/2026 | Pré-0.2 | Validation du jeton Notion, normalisation des identifiants de source et diagnostic de l'accès à la base | ≈ 14 min | ≈ 10 h 33 |
+| 01/08/2026 | Pré-0.2 | Première publication Notion réelle depuis quatre instantanés SQLite et validation de l'anti-doublon | ≈ 5 min | ≈ 10 h 38 |
+| 01/08/2026 | Pré-0.2 | Clôture de session, validation globale et sauvegarde GitHub | ≈ 2 min | ≈ 10 h 40 |
 
 ## Total par version
 
 | Version | Durée |
 |---|---:|
-| Pré-0.2 | ≈ 9 h 04 |
+| Pré-0.2 | ≈ 10 h 40 |

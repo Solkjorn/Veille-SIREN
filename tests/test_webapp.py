@@ -3,6 +3,7 @@ import unittest
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
+from unittest.mock import patch
 
 from openpyxl import Workbook
 
@@ -32,7 +33,19 @@ class TestApplicationWeb(unittest.TestCase):
     def test_tableau_de_bord_vide(self):
         reponse = self.client.get("/")
         self.assertEqual(reponse.status_code, 200)
-        self.assertIn("Aucune société", reponse.get_data(as_text=True))
+        page = reponse.get_data(as_text=True)
+        self.assertIn("Aucune société", page)
+        self.assertIn('href="/imports"', page)
+        self.assertNotIn("Sélectionner une liste de sociétés", page)
+
+    def test_affiche_le_formulaire_d_import_sur_une_page_dediee(self):
+        reponse = self.client.get("/imports")
+        page = reponse.get_data(as_text=True)
+
+        self.assertEqual(reponse.status_code, 200)
+        self.assertIn("<h2>Imports</h2>", page)
+        self.assertIn("Sélectionner une liste de sociétés", page)
+        self.assertIn('accept=".xlsx"', page)
 
     def test_tableau_de_bord_affiche_les_societes_et_indicateurs(self):
         ajouter_societe_surveillee(
@@ -148,7 +161,9 @@ class TestApplicationWeb(unittest.TestCase):
         page_finale = confirmation.get_data(as_text=True)
 
         self.assertIn("Import terminé", page_finale)
-        self.assertIn("Importée", page_finale)
+        self.assertIn("<h2>Imports</h2>", page_finale)
+        tableau_de_bord = self.client.get("/").get_data(as_text=True)
+        self.assertIn("Importée", tableau_de_bord)
 
     def test_refuse_une_confirmation_d_import_expiree(self):
         reponse = self.client.post(
@@ -236,6 +251,24 @@ class TestApplicationWeb(unittest.TestCase):
         self.assertIn("attachment", telechargement.headers["Content-Disposition"])
         telechargement.close()
         self.assertEqual(self.client.get("/rapports/inconnu.txt").status_code, 404)
+
+    def test_consulte_un_rapport_html_dans_le_navigateur(self):
+        dossier = Path(self.temp.name) / "rapports"
+        dossier.mkdir()
+        (dossier / "veille_test.html").write_text(
+            "<!doctype html><title>Rapport HTML</title>", encoding="utf-8"
+        )
+
+        with patch("webapp.DOSSIER_RAPPORTS", dossier):
+            liste = self.client.get("/rapports").get_data(as_text=True)
+            consultation = self.client.get("/rapports/veille_test.html")
+
+        self.assertIn("veille_test.html", liste)
+        self.assertIn("Rapport HTML", liste)
+        self.assertEqual(consultation.status_code, 200)
+        self.assertEqual(consultation.mimetype, "text/html")
+        self.assertIn("Rapport HTML", consultation.get_data(as_text=True))
+        consultation.close()
 
     def test_formulaire_d_archivage_demande_confirmation(self):
         ajouter_societe_surveillee("542051180", chemin=self.base)

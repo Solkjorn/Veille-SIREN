@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titre %}Imports · Veille-SIREN{% endblock %}
+{% block contenu %}
+  <section class="introduction">
+    <p class="surtitre">Gestion des données</p>
+    <h2>Imports</h2>
+    <p>Ajoutez ou actualisez la liste des sociétés surveillées depuis Excel.</p>
+  </section>
+
+  <section class="panneau panneau-import">
+    <div>
+      <p class="surtitre">Import Excel</p>
+      <h3>Sélectionner une liste de sociétés</h3>
+      <p>Le fichier sera contrôlé et prévisualisé avant toute modification.</p>
+    </div>
+    <form method="post" enctype="multipart/form-data"
+          action="{{ url_for('previsualiser_import') }}">
+      <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+      <label>
+        <span>Fichier .xlsx</span>
+        <input type="file" name="fichier_excel" accept=".xlsx" required>
+      </label>
+      <button class="bouton primaire" type="submit">Prévisualiser</button>
+    </form>
+  </section>
+{% endblock %}

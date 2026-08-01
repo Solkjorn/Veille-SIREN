@@ -172,20 +172,24 @@ def creer_application(configuration: dict | None = None) -> Flask:
             "La société a été restaurée."
         )
 
+    @application.get("/imports")
+    def imports():
+        return render_template("imports.html")
+
     @application.post("/import-excel/previsualiser")
     def previsualiser_import():
         verifier_csrf()
         fichier = request.files.get("fichier_excel")
         if fichier is None or not fichier.filename:
             flash("Sélectionnez un fichier Excel.", "erreur")
-            return redirect(url_for("tableau_de_bord"))
+            return redirect(url_for("imports"))
         try:
             apercu = analyser_televersement_excel(
                 fichier.filename, fichier.read()
             )
         except (ValueError, OSError) as erreur:
             flash(str(erreur), "erreur")
-            return redirect(url_for("tableau_de_bord"))
+            return redirect(url_for("imports"))
 
         nettoyer_apercus()
         identifiant = secrets.token_urlsafe(24)
@@ -207,7 +211,7 @@ def creer_application(configuration: dict | None = None) -> Flask:
                 "Cette prévisualisation a expiré. Sélectionnez à nouveau le fichier.",
                 "erreur",
             )
-            return redirect(url_for("tableau_de_bord"))
+            return redirect(url_for("imports"))
 
         _, apercu = entree
         bilan = importer_apercu(apercu, chemin_base())
@@ -217,7 +221,7 @@ def creer_application(configuration: dict | None = None) -> Flask:
             f"{bilan.lignes_ignorees} ligne(s) ignorée(s).",
             "succes",
         )
-        return redirect(url_for("tableau_de_bord"))
+        return redirect(url_for("imports"))
 
     @application.get("/societes/<siren>/historique")
     def historique_societe(siren: str):
@@ -259,7 +263,8 @@ def creer_application(configuration: dict | None = None) -> Flask:
     @application.get("/rapports")
     def rapports():
         fichiers = sorted(
-            DOSSIER_RAPPORTS.glob("*.md"),
+            list(DOSSIER_RAPPORTS.glob("*.html"))
+            + list(DOSSIER_RAPPORTS.glob("*.md")),
             key=lambda fichier: fichier.stat().st_mtime,
             reverse=True,
         )
@@ -268,10 +273,14 @@ def creer_application(configuration: dict | None = None) -> Flask:
     @application.get("/rapports/<nom_fichier>")
     def consulter_rapport(nom_fichier: str):
         chemin = DOSSIER_RAPPORTS / Path(nom_fichier).name
-        if nom_fichier != chemin.name or chemin.suffix.casefold() != ".md":
+        if nom_fichier != chemin.name or chemin.suffix.casefold() not in {
+            ".html", ".md"
+        }:
             abort(404)
         if not chemin.is_file():
             abort(404)
+        if chemin.suffix.casefold() == ".html":
+            return send_file(chemin, mimetype="text/html")
         return render_template(
             "rapport.html",
             nom_fichier=chemin.name,
@@ -281,7 +290,9 @@ def creer_application(configuration: dict | None = None) -> Flask:
     @application.get("/rapports/<nom_fichier>/telecharger")
     def telecharger_rapport(nom_fichier: str):
         chemin = DOSSIER_RAPPORTS / Path(nom_fichier).name
-        if nom_fichier != chemin.name or chemin.suffix.casefold() != ".md":
+        if nom_fichier != chemin.name or chemin.suffix.casefold() not in {
+            ".html", ".md"
+        }:
             abort(404)
         if not chemin.is_file():
             abort(404)

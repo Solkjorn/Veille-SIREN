@@ -45,7 +45,7 @@
   {% endif %}
 
   <div class="barre-confirmation">
-    <a class="bouton lien-bouton" href="{{ url_for('tableau_de_bord') }}">Annuler</a>
+    <a class="bouton lien-bouton" href="{{ url_for('imports') }}">Annuler</a>
     {% if apercu.lignes %}
       <form method="post" action="{{ url_for('confirmer_import') }}">
         <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">

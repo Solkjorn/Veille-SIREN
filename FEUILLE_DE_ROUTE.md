@@ -96,6 +96,8 @@ sont disponibles. Leur raccordement à l'interface est prévu en phase 3.
 - Activer ou désactiver une société.
 - Supprimer ou archiver une société avec confirmation.
 - Importer un fichier Excel.
+- Isoler l'import Excel dans une page « Imports » de la navigation, sans
+  bandeau d'import sur le tableau de bord.
 - Consulter l'historique d'une société.
 - Consulter les collectes, erreurs et rapports.
 
@@ -134,8 +136,11 @@ BODACC sont maintenant disponibles. BODACC fonctionne sans identifiant.
 L'application « Veille SIREN » est créée sur le portail INSEE, sa souscription
 à API Sirene 3.11 est active et la collecte réelle a été validée. Sa clé est
 chiffrée avec Windows DPAPI, liée au compte Windows courant et conservée hors
-du dépôt ; une variable d'environnement reste possible en remplacement. INPI
-attend encore l'activation de l'accès API du compte.
+du dépôt ; une variable d'environnement reste possible en remplacement.
+L'accès « Informations des entreprises » des APIs RNE a été activé pour
+INPI. Les identifiants sont protégés par Windows DPAPI hors du dépôt et la
+structure JSON réelle a été intégrée. L'authentification et une collecte réelle
+par SIREN ont été validées. La phase 5 peut maintenant commencer.
 
 ## Phase 5 — Rapports HTML
 
@@ -149,6 +154,22 @@ attend encore l'activation de l'accès API du compte.
 - Définir une politique de conservation.
 
 Le Markdown peut rester disponible comme format secondaire.
+
+État : terminée. Le rapport HTML autonome est devenu le format principal de
+chaque exécution et le Markdown est généré en parallèle comme format secondaire.
+Le rapport contient un résumé des réussites, modifications, sociétés stables
+et erreurs ; il sépare les sociétés modifiées de celles sans changement,
+affiche les valeurs avant/après, les données collectées, la date, la source et
+l'état. Les rapports HTML et Markdown sont consultables et téléchargeables
+depuis l'interface web. La synthèse hebdomadaire est disponible : elle utilise
+une fenêtre glissante de sept jours, compare le
+dernier état de la période à l'état antérieur, inclut les échecs enregistrés
+dans SQLite et produit un HTML distinct adapté à l'e-mail. Elle peut être
+générée avec `python main.py --synthese-hebdomadaire`. La politique retenue
+conserve les rapports de veille et synthèses pendant 365 jours, puis supprime
+automatiquement uniquement les fichiers générés reconnus. Les rapports de
+développement sont conservés sans limite et les fichiers inconnus sont exclus
+du nettoyage.
 
 ## Phase 6 — Rapports journaliers de développement
 
@@ -164,6 +185,11 @@ Créer des rapports distincts des rapports de veille contenant :
 - le commit Git associé ;
 - la prochaine étape.
 
+État : terminée. Tous les rapports de développement suivent maintenant une
+structure commune couvrant les horaires de session, le temps, les travaux, les
+modules, les tests, les difficultés et décisions, le commit et la prochaine
+étape. Un test automatique contrôle cette structure pour chaque rapport.
+
 ## Phase 7 — Intégration Notion
 
 - Définir les bases ou pages Notion cibles.
@@ -173,6 +199,31 @@ Créer des rapports distincts des rapports de veille contenant :
 - Conserver les identifiants Notion utiles dans SQLite.
 - Empêcher les publications en double.
 - Gérer les erreurs Notion sans bloquer la collecte.
+
+État : en cours. La connexion au workspace Notion personnel est
+opérationnelle. La base existante « Journal de travail » reste la cible des
+comptes rendus de développement. Une base distincte « Veille-SIREN — Rapports
+de veille » a été créée pour les rapports juridiques quotidiens et
+hebdomadaires, avec les champs de date, type, statut, identifiant stable,
+volumes, modifications, erreurs et fichier source. Les identifiants non
+sensibles des deux sources de données sont conservés dans SQLite. Un registre
+local des publications empêche les doublons. Le compte rendu du 1er août a été
+publié dans « Journal de travail » et enregistré dans le registre local. Les
+anciens modèles Notion « Journal », « Task List » et « Media » ont été placés
+dans la corbeille afin de ne conserver que les deux structures du projet.
+Le client HTTP de publication est désormais intégré : le jeton est conservé
+hors du dépôt dans un coffre Windows DPAPI, les rapports quotidiens alimentent
+la base de veille avec leurs métadonnées, l'anti-doublon est appliqué avant
+l'appel réseau et les erreurs Notion sont journalisées sans interrompre la
+collecte. Le jeton réel est maintenant chiffré, son authentification et l'accès
+aux deux bases ont été validés. Un premier rapport quotidien réel, construit à
+partir de quatre instantanés SQLite, a été publié avec succès ; son inscription
+dans le registre anti-doublon a également été contrôlée. Reste à automatiser
+la publication des rapports de développement avant de clôturer la phase. La structure a été
+volontairement simplifiée : le Journal ne conserve que le titre, la date et le
+statut ; les deux vues portent des noms explicites, sont triées par date
+décroissante et n'affichent que les champs utiles. Les métadonnées techniques
+restent disponibles pour l'application mais sont masquées dans la vue.
 
 ## Phase 8 — Automatisation
 

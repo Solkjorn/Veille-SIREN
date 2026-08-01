@@ -9,7 +9,7 @@
     {% if fichiers %}
       {% for fichier in fichiers %}
         <article>
-          <div><strong>{{ fichier.name }}</strong><span>{{ fichier.stat().st_size }} octets</span></div>
+          <div><strong>{{ fichier.name }}</strong><span>{{ "Rapport HTML" if fichier.suffix == ".html" else "Document Markdown" }} · {{ fichier.stat().st_size }} octets</span></div>
           <div class="boutons-actions">
             <a class="bouton lien-bouton" href="{{ url_for('consulter_rapport', nom_fichier=fichier.name) }}">Consulter</a>
             <a class="bouton lien-bouton" href="{{ url_for('telecharger_rapport', nom_fichier=fichier.name) }}">Télécharger</a>

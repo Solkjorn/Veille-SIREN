@@ -61,16 +61,19 @@ class TestSources(unittest.TestCase):
         self.assertEqual(source.cle_api, "cle-coffre")
         mock_coffre.assert_called_once_with()
 
+    @patch("modules.sources.lire_identifiants_inpi", return_value=("", ""))
     @patch("modules.sources.requete_json")
     def test_source_inpi_s_authentifie_et_convertit_la_societe(
-        self, mock_requete
+        self, mock_requete, mock_coffre
     ):
         mock_requete.side_effect = [
             {"token": "jeton-test"},
-            {"content": {"personneMorale": {"identite": {"entreprise": {
-                "denomination": "SOCIÉTÉ INPI",
-                "formeJuridique": "SAS",
-            }}}}},
+            {"formality": {"content": {
+                "personneMorale": {"identite": {"entreprise": {
+                    "denomination": "SOCIÉTÉ INPI",
+                    "formeJuridique": "SAS",
+                }}}
+            }}},
         ]
 
         societe = SourceINPI("compte", "secret").collecter("123456789")
@@ -79,15 +82,30 @@ class TestSources(unittest.TestCase):
         self.assertEqual(societe.forme_juridique, "SAS")
         self.assertEqual(societe.source, "INPI")
         self.assertEqual(mock_requete.call_count, 2)
+        mock_coffre.assert_called_once_with()
         self.assertEqual(
             mock_requete.call_args.args[1],
             {"Authorization": "Bearer jeton-test"},
         )
 
-    def test_source_inpi_refuse_une_configuration_absente(self):
+    @patch("modules.sources.lire_identifiants_inpi", return_value=("", ""))
+    def test_source_inpi_refuse_une_configuration_absente(self, mock_coffre):
         with patch.dict("os.environ", {}, clear=True):
             with self.assertRaises(ConfigurationSourceInvalide):
                 SourceINPI().collecter("123456789")
+        mock_coffre.assert_called_once_with()
+
+    @patch(
+        "modules.sources.lire_identifiants_inpi",
+        return_value=("compte-coffre", "secret-coffre"),
+    )
+    def test_source_inpi_lit_les_identifiants_du_coffre(self, mock_coffre):
+        with patch.dict("os.environ", {}, clear=True):
+            source = SourceINPI()
+
+        self.assertEqual(source.identifiant, "compte-coffre")
+        self.assertEqual(source.mot_de_passe, "secret-coffre")
+        mock_coffre.assert_called_once_with()
 
     @patch("modules.sources.requete_json")
     def test_source_bodacc_convertit_la_derniere_annonce(self, mock_requete):

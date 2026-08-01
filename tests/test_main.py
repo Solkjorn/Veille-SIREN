@@ -6,6 +6,7 @@ from modules.modele import SocieteSurveillee
 
 
 class TestMain(unittest.TestCase):
+    @patch("main.publier_rapport_veille", return_value=None)
     @patch("main.generer_rapport", return_value="rapport.md")
     @patch("main.afficher_changements")
     @patch("main.detecter_changements", return_value=[])
@@ -21,6 +22,7 @@ class TestMain(unittest.TestCase):
         self, mock_creer_dossiers, mock_lire_societes, mock_collecteur_classe,
         mock_afficher, mock_logger, mock_initialiser, mock_enregistrer,
         mock_derniere, mock_detecter, mock_afficher_changements, mock_rapport,
+        mock_publier,
     ):
         mock_lire_societes.return_value = [
             SocieteSurveillee("111111111"), SocieteSurveillee("333333333")
@@ -39,12 +41,14 @@ class TestMain(unittest.TestCase):
         self.assertEqual(mock_enregistrer.call_count, 2)
         mock_lire_societes.assert_called_once_with(actives_uniquement=True)
         mock_rapport.assert_called_once()
+        mock_publier.assert_called_once()
         mock_collecteur_classe.assert_called_once_with(
             sans_interface=False,
             tentatives=2,
             source=ANY,
         )
 
+    @patch("main.publier_rapport_veille", return_value=None)
     @patch("main.generer_rapport", return_value="rapport.md")
     @patch("main.afficher_changements")
     @patch("main.detecter_changements", return_value=[])
@@ -60,6 +64,7 @@ class TestMain(unittest.TestCase):
         self, mock_creer_dossiers, mock_lire_societes, mock_collecteur_classe,
         mock_afficher, mock_logger, mock_initialiser, mock_enregistrer,
         mock_derniere, mock_detecter, mock_afficher_changements, mock_rapport,
+        mock_publier,
     ):
         mock_lire_societes.return_value = [
             SocieteSurveillee("111111111"), SocieteSurveillee("333333333")
@@ -75,6 +80,11 @@ class TestMain(unittest.TestCase):
         self.assertEqual(mock_collecter.call_count, 2)
         mock_enregistrer.assert_called_once_with("société 3")
         mock_rapport.assert_called_once()
+        mock_publier.assert_called_once()
+        self.assertEqual(
+            mock_rapport.call_args.kwargs["erreurs"],
+            [("111111111", "Pappers indisponible")],
+        )
 
 
 if __name__ == "__main__":

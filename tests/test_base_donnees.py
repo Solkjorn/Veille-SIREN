@@ -6,12 +6,19 @@ from datetime import datetime
 from pathlib import Path
 
 from modules.base_donnees import (
+    configurer_cible_notion,
     enregistrer_etat_tache,
+    enregistrer_publication_notion,
     enregistrer_societe,
     initialiser_base,
     lire_collectes_societe,
     lire_collectes_recentes,
+    lire_collectes_entre,
+    lire_collecte_avant,
     lire_derniere_collecte,
+    lire_erreurs_taches_entre,
+    lire_cible_notion,
+    publication_notion_existe,
 )
 from modules.modele import Societe
 
@@ -185,6 +192,72 @@ class TestBaseDonnees(unittest.TestCase):
         self.assertEqual(resultat[0].statut, "Deuxième")
         with self.assertRaises(ValueError):
             lire_collectes_recentes(0, self.chemin_base)
+
+    def test_lire_collectes_entre_et_collecte_avant(self):
+        for jour, statut in ((1, "Avant"), (3, "Pendant"), (10, "Après")):
+            enregistrer_societe(
+                Societe(
+                    siren="542051180",
+                    statut=statut,
+                    date_collecte=datetime(2026, 8, jour, 10),
+                ),
+                self.chemin_base,
+            )
+
+        debut = datetime(2026, 8, 2)
+        fin = datetime(2026, 8, 9)
+        collectes = lire_collectes_entre(debut, fin, self.chemin_base)
+        precedente = lire_collecte_avant(
+            "542051180", debut, self.chemin_base
+        )
+
+        self.assertEqual([c.statut for c in collectes], ["Pendant"])
+        self.assertEqual(precedente.statut, "Avant")
+        with self.assertRaises(ValueError):
+            lire_collectes_entre(fin, debut, self.chemin_base)
+
+    def test_lire_erreurs_taches_entre(self):
+        enregistrer_etat_tache(
+            "123456789", "echec", message="API indisponible",
+            chemin=self.chemin_base,
+        )
+        maintenant = datetime.now()
+
+        erreurs = lire_erreurs_taches_entre(
+            maintenant.replace(hour=0, minute=0, second=0, microsecond=0),
+            maintenant.replace(hour=23, minute=59, second=59, microsecond=999999),
+            self.chemin_base,
+        )
+
+        self.assertEqual(erreurs, [("123456789", "API indisponible")])
+
+    def test_configuration_et_publications_notion(self):
+        configurer_cible_notion(
+            "rapports_veille", "collection://veille", self.chemin_base
+        )
+        configurer_cible_notion(
+            "rapports_veille", "collection://nouvelle", self.chemin_base
+        )
+
+        self.assertEqual(
+            lire_cible_notion("rapports_veille", self.chemin_base),
+            "collection://nouvelle",
+        )
+        self.assertFalse(
+            publication_notion_existe("rapport-1", self.chemin_base)
+        )
+        enregistrer_publication_notion(
+            "rapport-1", "page-1", "https://notion.test/page-1",
+            self.chemin_base,
+        )
+        self.assertTrue(
+            publication_notion_existe("rapport-1", self.chemin_base)
+        )
+        with self.assertRaises(sqlite3.IntegrityError):
+            enregistrer_publication_notion(
+                "rapport-1", "page-2", "https://notion.test/page-2",
+                self.chemin_base,
+            )
 
 
 if __name__ == "__main__":

@@ -28,22 +28,6 @@
       <button class="bouton primaire" type="submit">Ajouter</button>
     </form>
   </section>
-  <section class="panneau panneau-import">
-    <div>
-      <p class="surtitre">Import Excel</p>
-      <h3>Ajouter ou actualiser une liste</h3>
-      <p>Le fichier sera contrôlé et prévisualisé avant toute modification.</p>
-    </div>
-    <form method="post" enctype="multipart/form-data"
-          action="{{ url_for('previsualiser_import') }}">
-      <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
-      <label>
-        <span>Fichier .xlsx</span>
-        <input type="file" name="fichier_excel" accept=".xlsx" required>
-      </label>
-      <button class="bouton" type="submit">Prévisualiser</button>
-    </form>
-  </section>
   <section class="indicateurs" aria-label="Indicateurs">
     <article><strong>{{ nombre_actives }}</strong><span>Actives</span></article>
     <article><strong>{{ nombre_inactives }}</strong><span>Inactives</span></article>

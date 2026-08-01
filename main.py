@@ -8,7 +8,8 @@ from modules.comparaison import Changement, detecter_changements
 from modules.initialisation import creer_dossiers
 from modules.logger import logger
 from modules.modele import Societe
-from modules.rapport import generer_rapport
+from modules.notion import ErreurNotion, publier_rapport_veille
+from modules.rapport import generer_rapport, generer_synthese_hebdomadaire
 from modules.societes_surveillees import lire_societes_surveillees
 from modules.sources import SOURCES_DISPONIBLES, creer_source
 
@@ -88,6 +89,7 @@ def executer(sans_interface: bool = False, source: str = "pappers") -> None:
         return
 
     resultats = []
+    erreurs_collecte = []
 
     with CollecteurSocietes(
         sans_interface=sans_interface,
@@ -105,6 +107,7 @@ def executer(sans_interface: bool = False, source: str = "pappers") -> None:
             except Exception as erreur:
                 logger.exception("Échec de la collecte du SIREN %s", siren)
                 print(f"Échec de la collecte du SIREN {siren} : {erreur}")
+                erreurs_collecte.append((siren, str(erreur)))
                 continue
 
             logger.info("Collecte du SIREN %s terminée avec succès", siren)
@@ -128,11 +131,23 @@ def executer(sans_interface: bool = False, source: str = "pappers") -> None:
                     changement.nouvelle_valeur,
                 )
 
-    if resultats:
-        chemin_rapport = generer_rapport(resultats)
+    if resultats or erreurs_collecte:
+        chemin_rapport = generer_rapport(
+            resultats, erreurs=erreurs_collecte
+        )
         logger.info("Rapport généré : %s", chemin_rapport)
         print()
         print(f"Rapport enregistré dans : {chemin_rapport}")
+        try:
+            url_notion = publier_rapport_veille(
+                chemin_rapport, resultats, erreurs_collecte
+            )
+            if url_notion:
+                logger.info("Rapport publié dans Notion : %s", url_notion)
+                print(f"Rapport publié dans Notion : {url_notion}")
+        except ErreurNotion as erreur:
+            logger.warning("Publication Notion ignorée : %s", erreur)
+            print(f"Publication Notion ignorée : {erreur}")
 
     logger.info("Fin de la veille juridique")
 
@@ -152,8 +167,19 @@ if __name__ == "__main__":
         default="pappers",
         help="Source juridique utilisée pour la collecte.",
     )
-    arguments = analyseur.parse_args()
-    executer(
-        sans_interface=arguments.sans_interface,
-        source=arguments.source,
+    analyseur.add_argument(
+        "--synthese-hebdomadaire",
+        action="store_true",
+        help="Génère la synthèse HTML des sept derniers jours sans collecte.",
     )
+    arguments = analyseur.parse_args()
+    if arguments.synthese_hebdomadaire:
+        print(
+            "Synthèse enregistrée dans : "
+            f"{generer_synthese_hebdomadaire()}"
+        )
+    else:
+        executer(
+            sans_interface=arguments.sans_interface,
+            source=arguments.source,
+        )

@@ -13,6 +13,8 @@ donnees/*.sqlite
 donnees/*.sqlite-shm
 donnees/*.sqlite-wal
 rapports/veille_*.md
+rapports/veille_*.html
+rapports/synthese_hebdomadaire_*.html
 
 # Fichiers temporaires des outils
 .pytest_cache/
