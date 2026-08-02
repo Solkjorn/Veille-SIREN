@@ -11,9 +11,98 @@
     <p>{{ surveillance.siren }} · {{ historique|length }} collecte(s) enregistrée(s)</p>
   </section>
 
-  {% if historique %}
+  <section class="panneau fiche-societe">
+    <header class="entete-fiche">
+      <div><p class="surtitre">Fiche société</p><h3>Situation actuelle</h3></div>
+      {% if derniere_collecte %}<span class="badge">Vérifiée le {{ derniere_collecte.date_collecte.strftime("%d/%m/%Y à %H:%M") }}</span>{% endif %}
+    </header>
+    {% if derniere_collecte %}
+      <dl class="grille-fiche">
+        <div><dt>Raison sociale</dt><dd>{{ derniere_collecte.raison_sociale or "Non renseignée" }}</dd></div>
+        <div><dt>SIREN</dt><dd>{{ derniere_collecte.siren }}</dd></div>
+        <div><dt>État administratif</dt><dd><strong>{{ derniere_collecte.statut or "Non renseigné" }}</strong></dd></div>
+        <div><dt>Forme juridique</dt><dd>{{ derniere_collecte.forme_juridique or "Non renseignée" }}</dd></div>
+        <div><dt>Capital</dt><dd>{{ derniere_collecte.capital or "Non renseigné" }}</dd></div>
+        <div class="double dirigeants"><dt>Dirigeant(s)</dt><dd>{{ derniere_collecte.dirigeant or "Non renseigné(s)" }}</dd></div>
+        <div><dt>Dernière publication BODACC</dt><dd>{{ derniere_collecte.derniere_publication_bodacc or "Aucune publication renseignée" }}</dd></div>
+        <div class="double"><dt>Siège social</dt><dd>{{ derniere_collecte.adresse or "Non renseigné" }}</dd></div>
+        <div><dt>Sources de la vérification</dt><dd>{{ derniere_collecte.source or "Non renseignées" }}</dd></div>
+        <div class="double"><dt>Commentaire interne</dt><dd>{{ surveillance.commentaire or "Aucun commentaire" }}</dd></div>
+      </dl>
+    {% else %}
+      <p class="etat-vide">La fiche sera renseignée après la première collecte.</p>
+    {% endif %}
+    <div class="liens-officiels">
+      <h4>Consulter les sources officielles</h4>
+      {% for libelle, adresse in liens_officiels.items() %}<a href="{{ adresse }}" target="_blank" rel="noopener noreferrer">{{ libelle }} ↗</a>{% endfor %}
+    </div>
+  </section>
+
+  <section class="panneau documents-inpi">
+    <div class="titre-panneau">
+      <div><p class="surtitre">Documents officiels</p><h3>Actes et comptes INPI</h3></div>
+      <span>{{ documents_inpi|length }} document(s)</span>
+    </div>
+    {% if documents_inpi %}
+      <div class="liste-documents">
+        {% for document in documents_inpi %}
+          <article>
+            <div class="icone-document">{{ 'JSON' if document.type_document == 'bilan_saisi' else 'PDF' }}</div>
+            <div>
+              <span class="type-document">{{ {'acte': 'Acte', 'bilan': 'Compte annuel', 'bilan_saisi': 'Données de compte'}[document.type_document] }}</span>
+              <strong>{{ document.libelle or document.nom_document or "Document INPI" }}</strong>
+              <small>Déposé le {{ document.date_depot or "date inconnue" }} · {{ document.confidentialite or "Confidentialité non renseignée" }}</small>
+            </div>
+            <a class="bouton lien-bouton" href="{{ url_for('telecharger_document_inpi', type_document=document.type_document, identifiant=document.identifiant) }}">Télécharger {{ 'le JSON' if document.type_document == 'bilan_saisi' else 'le PDF' }}</a>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="etat-vide">Aucun acte ou compte annuel n'a encore été collecté pour cette société.</p>
+    {% endif %}
+  </section>
+
+  <section class="panneau preferences-alertes">
+    <h3>Préférences d'alertes</h3>
+    <p>Décochez une catégorie pour ne plus créer d'alerte correspondante. Le changement restera dans l'historique et les rapports.</p>
+    <form method="post" action="{{ url_for('modifier_preferences_alertes', siren=surveillance.siren) }}">
+      <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+      <div class="grille-preferences">
+        {% for categorie in categories_alertes %}
+          <label>
+            <input type="checkbox" name="categories" value="{{ categorie }}" {{ 'checked' if categorie in preferences_alertes }}>
+            {{ categorie|replace('_', ' ')|capitalize }}
+          </label>
+        {% endfor %}
+      </div>
+      <button type="submit">Enregistrer les préférences</button>
+    </form>
+  </section>
+
+  {% if chronologie %}
     <section class="chronologie">
-      {% for entree in historique %}
+      {% for entree in chronologie %}
+        {% if entree.type == 'publication' %}
+          <article class="collecte-historique evenement-publication">
+            <header>
+              <div><p class="surtitre">Publication BODACC</p><h3>{{ entree.date.strftime("%d/%m/%Y à %H:%M") }}</h3></div>
+              <span class="badge">Publication</span>
+            </header>
+            <p><strong>{{ entree.publication }}</strong></p>
+            <small>Source : {{ entree.source or "BODACC" }}</small>
+          </article>
+        {% elif entree.type == 'alerte' %}
+          {% set alerte = entree.alerte %}
+          <article class="collecte-historique evenement-alerte niveau-{{ alerte.niveau }}">
+            <header>
+              <div><p class="surtitre">Alerte {{ alerte.niveau }}</p><h3>{{ entree.date.strftime("%d/%m/%Y à %H:%M") }}</h3></div>
+              <span class="badge niveau-{{ alerte.niveau }}">{{ alerte.statut|capitalize }}</span>
+            </header>
+            <p><strong>{{ alerte.regle }}</strong></p>
+            <p>{{ alerte.ancienne_valeur or "Non renseigné" }} → {{ alerte.nouvelle_valeur or "Non renseigné" }}</p>
+            <small>{{ alerte.categorie|replace('_', ' ')|capitalize }} · Source : {{ alerte.source or "Non renseignée" }}</small>
+          </article>
+        {% else %}
         {% set collecte = entree.collecte %}
         <article class="collecte-historique">
           <header>
@@ -25,23 +114,52 @@
               {{ entree.changements|length }} changement(s)
             </span>
           </header>
+          <details class="details-techniques">
+            <summary>Sources et qualité des données</summary>
+            <p><strong>Sources utilisées :</strong> {{ collecte.source or "Non renseignées" }}</p>
+            {% if collecte.provenance %}
+              <ul>
+                {% for champ, source in collecte.provenance.items() %}
+                  <li>{{ champ|replace('_', ' ')|capitalize }} : {{ source }}
+                    {% if collecte.dates_provenance.get(champ) %}
+                      · {{ collecte.dates_provenance[champ]|replace('T', ' ') }}
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+            {% if collecte.erreurs_sources %}
+              <p><strong>Sources en erreur :</strong></p>
+              <ul>
+                {% for source, erreur in collecte.erreurs_sources.items() %}
+                  <li>{{ source }} : {{ erreur }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+            {% if collecte.contradictions %}
+              <p><strong>Contradictions détectées :</strong>
+                {{ collecte.contradictions.keys()|join(', ') }}</p>
+            {% endif %}
+          </details>
           {% if entree.changements %}
             <div class="liste-changements">
               {% for changement in entree.changements %}
                 <div>
-                  <strong>{{ changement.libelle }}</strong>
+                  <strong>{{ changement.niveau|capitalize }} · {{ changement.libelle }}</strong>
+                  <small>{{ changement.categorie|replace('_', ' ') }} · {{ changement.regle }}</small>
                   <span class="ancienne-valeur">{{ changement.ancienne_valeur or "Non renseigné" }}</span>
                   <span aria-hidden="true">→</span>
                   <span class="nouvelle-valeur">{{ changement.nouvelle_valeur or "Non renseigné" }}</span>
                 </div>
               {% endfor %}
             </div>
-          {% elif loop.last %}
+          {% elif not historique or collecte == historique[-1].collecte %}
             <p class="rapport-vide">Première collecte de référence.</p>
           {% else %}
             <p class="rapport-vide">Aucun changement depuis la collecte précédente.</p>
           {% endif %}
         </article>
+        {% endif %}
       {% endfor %}
     </section>
   {% else %}

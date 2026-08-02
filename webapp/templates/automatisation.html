@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block titre %}Automatisation · Veille-SIREN{% endblock %}
+{% block contenu %}
+  <section class="introduction">
+    <p class="surtitre">Phase 8</p>
+    <h2>Automatisation hebdomadaire</h2>
+    <p>Collecte chaque lundi à 7 h, puis synthèse et publication Notion.</p>
+  </section>
+  <section class="panneau">
+    <div class="titre-panneau"><h3>Tâche Windows</h3></div>
+    {% if planification.disponible %}
+      <div class="contenu-panneau"><dl class="grille-rapport etat-planification">
+        <div><dt>État</dt><dd>{{ planification.etat }}</dd></div>
+        <div><dt>Prochaine exécution</dt><dd>{{ planification.prochaine or "Inconnue" }}</dd></div>
+        <div><dt>Dernière exécution</dt><dd>{{ planification.derniere or "Jamais" }}</dd></div>
+        <div><dt>Dernier résultat</dt><dd>{{ planification.resultat }}</dd></div>
+      </dl>
+      <form class="action-planification" method="post" action="{{ url_for('lancer_automatisation') }}"
+            data-confirmation="Lancer maintenant la collecte hebdomadaire ?">
+        <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+        <button class="bouton primaire" type="submit">Lancer maintenant</button>
+      </form></div>
+      <form class="contenu-panneau" method="post" action="{{ url_for('arreter_collecte') }}"><input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}"><button class="bouton danger" type="submit">Arrêter proprement la collecte</button></form>
+      <form class="formulaire-planification" method="post"
+            action="{{ url_for('configurer_automatisation') }}">
+        <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+        <label><span>Jour</span><select name="jour">
+          <option value="0">Lundi</option><option value="1">Mardi</option>
+          <option value="2">Mercredi</option><option value="3">Jeudi</option>
+          <option value="4">Vendredi</option><option value="5">Samedi</option>
+          <option value="6">Dimanche</option>
+        </select></label>
+        <label><span>Heure</span><input name="heure" type="number" min="0" max="23" value="7" required></label>
+        <label><span>Minute</span><input name="minute" type="number" min="0" max="59" value="0" required></label>
+        <label><span>Source</span><select name="source">
+          <option value="multisource">Multisource</option><option value="pappers">Pappers</option><option value="insee">INSEE</option>
+          <option value="inpi">INPI</option><option value="bodacc">BODACC</option>
+        </select></label>
+        <button class="bouton" type="submit">Enregistrer la planification</button>
+      </form>
+    {% else %}
+      <p class="etat-vide">La tâche Windows n'est pas disponible : {{ planification.erreur }}</p>
+    {% endif %}
+  </section>
+  <section class="panneau"><div class="titre-panneau"><h3>Progression récente</h3><span>{{ progression|length }} étape(s)</span></div>{% if progression %}<div class="tableau-defilant"><table><thead><tr><th>Date</th><th>SIREN</th><th>État</th><th>Type</th><th>Tentative</th><th>Résultat</th></tr></thead><tbody>{% for t in progression %}<tr><td>{{ t.date_evenement }}</td><td><a href="{{ url_for('historique_societe', siren=t.siren) }}">{{ t.siren }}</a></td><td>{{ t.statut }}</td><td>{{ t.categorie_erreur or '—' }}</td><td>{{ t.tentative }}</td><td>{{ t.message }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="etat-vide">Aucune collecte en cours.</p>{% endif %}</section>
+  <section class="indicateurs" aria-label="Bilan des exécutions">
+    <article><strong>{{ bilan.succes }}</strong><span>Succès</span></article>
+    <article><strong>{{ bilan.echecs }}</strong><span>Échecs</span></article>
+    <article><strong>{{ bilan.modifications }}</strong><span>Modifications</span></article>
+  </section>
+  <section class="panneau">
+    <div class="titre-panneau"><h3>Historique des exécutions</h3><span>20 dernières</span></div>
+    {% if executions %}
+      <div class="tableau-defilant"><table><thead><tr>
+        <th>Début</th><th>Statut</th><th>Source</th><th>Sociétés</th>
+        <th>Modifications</th><th>Erreurs</th><th>Rapport</th>
+      </tr></thead><tbody>
+      {% for execution in executions %}<tr>
+        <td>{{ execution.date_debut }}</td><td>{{ execution.statut }}</td>
+        <td>{{ execution.source }}</td><td>{{ execution.societes }}</td>
+        <td>{{ execution.modifications }}</td><td>{{ execution.erreurs }}</td>
+        <td>{% if execution.rapport_nom %}<a href="{{ url_for('consulter_rapport', nom_fichier=execution.rapport_nom) }}">Ouvrir le rapport</a>{% else %}{{ execution.message or "—" }}{% endif %}</td>
+      </tr>{% endfor %}
+      </tbody></table></div>
+    {% else %}<p class="etat-vide">Aucune exécution complète enregistrée.</p>{% endif %}
+  </section>
+{% endblock %}

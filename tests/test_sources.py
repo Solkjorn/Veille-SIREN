@@ -1,11 +1,16 @@
+import json
 import unittest
+from datetime import date
 from unittest.mock import MagicMock, patch
 
+from modules.modele import Societe
+from modules.client_http import ErreurAPI
 from modules.sources import (
     ConfigurationSourceInvalide,
     SourceBODACC,
     SourceINPI,
     SourceINSEE,
+    SourceMultisource,
     SourcePappers,
     creer_source,
 )
@@ -74,6 +79,10 @@ class TestSources(unittest.TestCase):
                     "formeJuridique": "SAS",
                 }}}
             }}},
+            {"actes": [{
+                "id": "acte-1", "dateDepot": "2026-07-30",
+                "libelle": "Statuts mis à jour", "confidentiality": "Public",
+            }], "bilans": [], "bilansSaisis": []},
         ]
 
         societe = SourceINPI("compte", "secret").collecter("123456789")
@@ -81,12 +90,25 @@ class TestSources(unittest.TestCase):
         self.assertEqual(societe.raison_sociale, "SOCIÉTÉ INPI")
         self.assertEqual(societe.forme_juridique, "SAS")
         self.assertEqual(societe.source, "INPI")
-        self.assertEqual(mock_requete.call_count, 2)
+        self.assertEqual(mock_requete.call_count, 3)
+        self.assertEqual(societe.documents_inpi[0]["identifiant"], "acte-1")
         mock_coffre.assert_called_once_with()
         self.assertEqual(
             mock_requete.call_args.args[1],
             {"Authorization": "Bearer jeton-test"},
         )
+
+    @patch("modules.sources.requete_binaire", return_value=(b"%PDF", "application/pdf"))
+    @patch("modules.sources.lire_identifiants_inpi", return_value=("", ""))
+    def test_source_inpi_telecharge_un_document_a_la_demande(
+        self, mock_coffre, mock_binaire
+    ):
+        source = SourceINPI("compte", "secret")
+        source._jeton = "jeton-test"
+        contenu, type_mime = source.telecharger_document("acte", "abc/123")
+        self.assertEqual(contenu, b"%PDF")
+        self.assertEqual(type_mime, "application/pdf")
+        self.assertIn("/actes/abc%2F123/download", mock_binaire.call_args.args[0])
 
     @patch("modules.sources.lire_identifiants_inpi", return_value=("", ""))
     def test_source_inpi_refuse_une_configuration_absente(self, mock_coffre):
@@ -123,11 +145,172 @@ class TestSources(unittest.TestCase):
         self.assertIn("Modification", societe.dernier_changement)
         self.assertEqual(societe.source, "BODACC")
 
-    def test_fabrique_connait_les_quatre_sources(self):
+    @patch("modules.sources.requete_json")
+    def test_source_bodacc_detaille_un_depot_json(self, mock_requete):
+        mock_requete.return_value = {"results": [{
+            "commercant": "SOCIÉTÉ BODACC",
+            "dateparution": "2026-08-01",
+            "typeavis": "annonce",
+            "familleavis_lib": "Dépôts des comptes",
+            "depot": json.dumps({
+                "typeDepot": "Comptes annuels",
+                "dateCloture": "2025-12-31",
+            }),
+        }]}
+
+        societe = SourceBODACC().collecter("123456789")
+
+        self.assertIn("Dépôts des comptes", societe.dernier_changement)
+        self.assertIn("Comptes annuels", societe.dernier_changement)
+
+    def test_fabrique_connait_toutes_les_sources(self):
         self.assertIsInstance(creer_source("pappers"), SourcePappers)
         self.assertIsInstance(creer_source("insee"), SourceINSEE)
         self.assertIsInstance(creer_source("inpi"), SourceINPI)
         self.assertIsInstance(creer_source("bodacc"), SourceBODACC)
+        self.assertIsInstance(creer_source("multisource"), SourceMultisource)
+
+    def test_multisource_fusionne_selon_les_priorites(self):
+        insee = MagicMock(nom="INSEE", necessite_navigateur=False)
+        insee.collecter.return_value = Societe(
+            "123456789", raison_sociale="Nom officiel", statut="Active",
+            forme_juridique="5710", source="INSEE",
+        )
+        inpi = MagicMock(nom="INPI", necessite_navigateur=False)
+        inpi.collecter.return_value = Societe(
+            "123456789", raison_sociale="Nom différent", forme_juridique="SAS",
+            dirigeant="Direction officielle", source="INPI",
+        )
+        bodacc = MagicMock(nom="BODACC", necessite_navigateur=False)
+        bodacc.collecter.return_value = Societe(
+            "123456789", derniere_publication_bodacc="2026-08-01",
+            dernier_changement="Modification", source="BODACC",
+        )
+        source = SourceMultisource([insee, inpi, bodacc])
+
+        societe = source.collecter("123456789")
+
+        self.assertEqual(societe.raison_sociale, "Nom officiel")
+        self.assertEqual(societe.forme_juridique, "SAS")
+        self.assertEqual(societe.dernier_changement, "Modification")
+        self.assertEqual(source.provenance["statut"], "INSEE")
+        self.assertIn("raison_sociale", source.contradictions)
+
+    def test_multisource_continue_si_une_source_echoue(self):
+        source_erreur = MagicMock(nom="INSEE", necessite_navigateur=False)
+        source_erreur.collecter.side_effect = ConnectionError("indisponible")
+        source_valide = MagicMock(nom="BODACC", necessite_navigateur=False)
+        source_valide.collecter.return_value = Societe(
+            "123456789", dernier_changement="Création", source="BODACC"
+        )
+        source = SourceMultisource([source_erreur, source_valide])
+
+        societe = source.collecter("123456789")
+
+        self.assertEqual(societe.dernier_changement, "Création")
+        self.assertIn("INSEE", source.erreurs_sources)
+
+    def test_multisource_ne_signale_pas_un_resume_bodacc_comme_conflit(self):
+        bodacc = MagicMock(nom="BODACC", necessite_navigateur=False)
+        bodacc.collecter.return_value = Societe(
+            "123456789",
+            dernier_changement="Dépôts des comptes — Comptes annuels — 2025-12-31",
+            source="BODACC",
+        )
+        pappers = MagicMock(nom="Pappers", necessite_navigateur=True)
+        pappers.collecter.return_value = Societe(
+            "123456789", dernier_changement="DÉPÔT DES COMPTES", source="Pappers"
+        )
+        source = SourceMultisource([bodacc, pappers])
+
+        source.collecter("123456789", MagicMock())
+
+        self.assertNotIn("dernier_changement", source.contradictions)
+
+    def test_multisource_ignore_pappers_si_les_champs_essentiels_sont_presents(self):
+        officielle = MagicMock(nom="INSEE", necessite_navigateur=False)
+        officielle.collecter.return_value = Societe(
+            "123456789", raison_sociale="Société", forme_juridique="SAS",
+            statut="Active", derniere_publication_bodacc="2026-08-01",
+            source="INSEE",
+        )
+        pappers = MagicMock(nom="Pappers", necessite_navigateur=True)
+        source = SourceMultisource(
+            [officielle, pappers], forcer_pappers=False
+        )
+
+        source.collecter("123456789", MagicMock())
+
+        pappers.collecter.assert_not_called()
+
+    def test_multisource_appelle_pappers_si_un_champ_essentiel_manque(self):
+        officielle = MagicMock(nom="INSEE", necessite_navigateur=False)
+        officielle.collecter.return_value = Societe(
+            "123456789", raison_sociale="Société", statut="Active",
+            source="INSEE",
+        )
+        pappers = MagicMock(nom="Pappers", necessite_navigateur=True)
+        pappers.collecter.return_value = Societe(
+            "123456789", forme_juridique="SAS",
+            derniere_publication_bodacc="01/08/2026", source="Pappers",
+        )
+        page = MagicMock()
+        source = SourceMultisource(
+            [officielle, pappers], forcer_pappers=False
+        )
+
+        source.collecter("123456789", page)
+
+        pappers.collecter.assert_called_once_with("123456789", page)
+
+    def test_multisource_force_pappers_la_premiere_semaine_du_mois(self):
+        officielle = MagicMock(nom="INSEE", necessite_navigateur=False)
+        officielle.collecter.return_value = Societe(
+            "123456789", raison_sociale="Société", forme_juridique="SAS",
+            statut="Active", derniere_publication_bodacc="2026-08-01",
+            source="INSEE",
+        )
+        pappers = MagicMock(nom="Pappers", necessite_navigateur=True)
+        pappers.collecter.return_value = Societe("123456789", source="Pappers")
+        source = SourceMultisource(
+            [officielle, pappers], date_reference=date(2026, 8, 3)
+        )
+
+        source.collecter("123456789", MagicMock())
+
+        pappers.collecter.assert_called_once()
+
+    def test_multisource_applique_des_delais_progressifs(self):
+        source_api = MagicMock(nom="INSEE", necessite_navigateur=False)
+        source_api.collecter.side_effect = [
+            ErreurAPI("temporaire"),
+            ErreurAPI("temporaire"),
+            Societe("123456789", raison_sociale="Société", source="INSEE"),
+        ]
+        pauses = []
+        source = SourceMultisource(
+            [source_api], forcer_pappers=False, tentatives_sources=3,
+            delai_initial=1, pause=pauses.append,
+        )
+
+        resultat = source.collecter("123456789")
+
+        self.assertEqual(resultat.raison_sociale, "Société")
+        self.assertEqual(pauses, [1, 2])
+
+    def test_multisource_ne_reessaie_pas_une_erreur_api_permanente(self):
+        source_api = MagicMock(nom="INSEE", necessite_navigateur=False)
+        source_api.collecter.side_effect = ErreurAPI(
+            "non autorisé", temporaire=False
+        )
+        source = SourceMultisource(
+            [source_api], forcer_pappers=False, pause=MagicMock()
+        )
+
+        with self.assertRaises(Exception):
+            source.collecter("123456789")
+
+        source_api.collecter.assert_called_once()
 
 
 if __name__ == "__main__":

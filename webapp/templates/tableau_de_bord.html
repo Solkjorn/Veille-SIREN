@@ -6,6 +6,7 @@
     <h2>Sociétés surveillées</h2>
     <p>État actuel de la liste utilisée pour les collectes juridiques.</p>
   </section>
+  <section class="panneau contenu-panneau"><form class="filtres-alertes" method="get"><label>Recherche<input name="q" value="{{ recherche }}" placeholder="SIREN ou raison sociale"></label><label>État<select name="etat"><option value="">Tous</option><option value="active">Actives</option><option value="inactive">Inactives</option><option value="archivee">Archivées</option></select></label><label>Modification<select name="modification"><option value="">Toutes</option><option value="oui">Avec</option><option value="non">Sans</option></select></label><label>Erreur<select name="erreur"><option value="">Toutes</option><option value="oui">Avec erreur</option></select></label><label>Source<input name="source" value="{{ source_filtre }}" placeholder="INPI, INSEE..."></label><label>Ancienneté<select name="anciennete"><option value="">Toutes</option><option value="7">Plus de 7 jours</option><option value="30">Plus de 30 jours</option></select></label><button class="bouton primaire">Filtrer</button></form></section>
   <section class="panneau panneau-ajout">
     <div class="titre-panneau"><h3>Ajouter une société</h3></div>
     <form class="formulaire-ajout" method="post"
@@ -33,9 +34,13 @@
     <article><strong>{{ nombre_inactives }}</strong><span>Inactives</span></article>
     <article><strong>{{ nombre_archivees }}</strong><span>Archivées</span></article>
   </section>
+  <section class="indicateurs"><article><strong>{{ nombre_jamais }}</strong><span>Jamais collectées</span></article><article><strong>{{ nombre_erreurs }}</strong><span>Avec erreurs de source</span></article><article><strong><a href="{{ url_for('erreurs') }}">Voir</a></strong><span>Erreurs et reprises</span></article></section>
+  <section class="indicateurs"><article><strong>{{ nombre_alertes }}</strong><span>Avec alertes nouvelles</span></article><article><strong>{{ nombre_obsoletes }}</strong><span>Données de plus de 7 jours</span></article><article><strong>{{ actions_prioritaires|length }}</strong><span>Actions prioritaires affichées</span></article></section>
+  <section class="panneau"><div class="titre-panneau"><h3>Actions prioritaires</h3><span>Sans graphique</span></div>{% if actions_prioritaires %}<div class="liste-priorites">{% for ligne in actions_prioritaires %}<a href="{{ url_for('historique_societe', siren=ligne.surveillance.siren) }}"><strong>{{ ligne.collecte.raison_sociale if ligne.collecte and ligne.collecte.raison_sociale else ligne.surveillance.siren }}</strong><span>{% if not ligne.collecte %}Jamais collectée{% elif ligne.collecte.erreurs_sources %}Erreur de source{% elif ligne.alertes %}Alerte à traiter{% else %}Données anciennes{% endif %}</span><small>Qualité {{ ligne.qualite }} %</small></a>{% endfor %}</div>{% else %}<p class="etat-vide">Aucune action prioritaire.</p>{% endif %}</section>
+  {% macro tableau_societes(lignes, titre, message_vide) %}
   <section class="panneau">
     <div class="titre-panneau">
-      <h3>Liste des sociétés</h3>
+      <h3>{{ titre }}</h3>
       <span>{{ lignes|length }} au total</span>
     </div>
     {% if lignes %}
@@ -53,7 +58,8 @@
               {% set collecte = ligne.collecte %}
               <tr>
                 <td>
-                  <button class="declencheur-rapport"
+                  <div class="cellule-societe">
+                    <button class="declencheur-rapport"
                           type="button"
                           aria-expanded="false"
                           aria-controls="rapport-{{ societe.siren }}"
@@ -64,7 +70,9 @@
                          else "Nom non encore collecté" }}
                     </span>
                     <span class="chevron" aria-hidden="true">⌄</span>
-                  </button>
+                    </button>
+                    <a class="lien-fiche" href="{{ url_for('historique_societe', siren=societe.siren) }}" aria-label="Ouvrir la fiche de {{ collecte.raison_sociale if collecte and collecte.raison_sociale else societe.siren }}">Fiche →</a>
+                  </div>
                 </td>
                 <td>
                   {% if societe.date_archivage %}
@@ -133,9 +141,9 @@
                       </p>
                     {% endif %}
                     <div class="actions-societe">
-                      <a class="bouton lien-bouton"
+                      <a class="bouton primaire lien-bouton"
                          href="{{ url_for('historique_societe', siren=societe.siren) }}">
-                        Voir l'historique
+                        Ouvrir la fiche société
                       </a>
                       {% if not societe.date_archivage %}
                         <form class="formulaire-commentaire" method="post"
@@ -194,7 +202,18 @@
         </table>
       </div>
     {% else %}
-      <p class="etat-vide">Aucune société n'est encore surveillée.</p>
+      <p class="etat-vide">{{ message_vide }}</p>
     {% endif %}
   </section>
+  {% endmacro %}
+  {{ tableau_societes(
+       lignes_modifiees,
+       "Sociétés avec modifications",
+       "Aucune modification détectée lors de la dernière vérification."
+     ) }}
+  {{ tableau_societes(
+       lignes_sans_modification,
+       "Sociétés sans modification",
+       "Aucune société sans modification."
+     ) }}
 {% endblock %}

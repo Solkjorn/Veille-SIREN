@@ -26,6 +26,11 @@ class Societe:
 
     # Métadonnées
     source: str = ""
+    provenance: dict[str, str] = field(default_factory=dict)
+    dates_provenance: dict[str, str] = field(default_factory=dict)
+    erreurs_sources: dict[str, str] = field(default_factory=dict)
+    contradictions: dict[str, dict[str, str]] = field(default_factory=dict)
+    documents_inpi: list[dict] = field(default_factory=list)
     date_collecte: datetime = field(default_factory=datetime.now)
 
 @dataclass

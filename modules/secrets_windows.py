@@ -12,6 +12,7 @@ DOSSIER_SECRETS = Path(
 FICHIER_CLE_INSEE = DOSSIER_SECRETS / "insee-api-key.bin"
 FICHIER_IDENTIFIANTS_INPI = DOSSIER_SECRETS / "inpi-credentials.bin"
 FICHIER_JETON_NOTION = DOSSIER_SECRETS / "notion-token.bin"
+FICHIER_SMTP = DOSSIER_SECRETS / "smtp-config.bin"
 
 
 class _DataBlob(ctypes.Structure):
@@ -137,6 +138,39 @@ def configurer_jeton_notion() -> Path:
     return proteger_jeton_notion(jeton)
 
 
+def proteger_configuration_smtp(configuration: dict) -> Path:
+    """Chiffre la configuration SMTP complète avec Windows DPAPI."""
+    champs = ("hote", "port", "utilisateur", "mot_de_passe", "expediteur", "destinataire")
+    if not all(str(configuration.get(champ, "")).strip() for champ in champs):
+        raise ValueError("Tous les paramètres SMTP sont requis.")
+    contenu = json.dumps(configuration, ensure_ascii=False)
+    return _proteger_texte(contenu, FICHIER_SMTP, "Veille-SIREN - SMTP")
+
+
+def lire_configuration_smtp() -> dict:
+    """Déchiffre la configuration SMTP, si elle existe."""
+    contenu = _lire_texte(FICHIER_SMTP)
+    if not contenu:
+        return {}
+    try:
+        return json.loads(contenu)
+    except json.JSONDecodeError as erreur:
+        raise ValueError("Le coffre SMTP local est illisible.") from erreur
+
+
+def configurer_smtp() -> Path:
+    """Demande les paramètres SMTP et protège le mot de passe."""
+    configuration = {
+        "hote": input("Serveur SMTP : ").strip(),
+        "port": input("Port SMTP (souvent 587) : ").strip(),
+        "utilisateur": input("Identifiant SMTP : ").strip(),
+        "mot_de_passe": getpass.getpass("Mot de passe SMTP ou mot de passe d'application : "),
+        "expediteur": input("Adresse d'expédition : ").strip(),
+        "destinataire": input("Adresse destinataire : ").strip(),
+    }
+    return proteger_configuration_smtp(configuration)
+
+
 def configurer_identifiants_inpi() -> Path:
     """Demande les secrets sans les afficher puis alimente le coffre INPI."""
     identifiant = input("Adresse e-mail INPI : ").strip()
@@ -149,10 +183,13 @@ if __name__ == "__main__":
 
     analyseur = argparse.ArgumentParser()
     analyseur.add_argument(
-        "service", choices=("inpi", "notion"), nargs="?", default="inpi"
+        "service", choices=("inpi", "notion", "smtp"), nargs="?", default="inpi"
     )
     service = analyseur.parse_args().service
-    if service == "notion":
+    if service == "smtp":
+        chemin = configurer_smtp()
+        print(f"Configuration SMTP protégée dans : {chemin}")
+    elif service == "notion":
         chemin = configurer_jeton_notion()
         print(f"Jeton Notion protégé dans : {chemin}")
     else:

@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from html import escape
 from pathlib import Path
+import re
 
 from config import BASE_SQLITE, DOSSIER_RAPPORTS
 from modules.base_donnees import (
@@ -23,6 +24,22 @@ def formater_html(valeur: object) -> str:
     """Protège une valeur avant son insertion dans le rapport HTML."""
     texte = str(valeur).strip() if valeur is not None else ""
     return escape(texte or "—").replace("\n", "<br>")
+
+
+def lire_resume_rapport_html(chemin: Path) -> dict[str, int]:
+    """Extrait les quatre compteurs du bandeau d'un rapport HTML."""
+    contenu = Path(chemin).read_text(encoding="utf-8")
+
+    def lire(libelle: str) -> int:
+        resultat = re.search(rf"<strong>(\d+)</strong>{re.escape(libelle)}", contenu)
+        return int(resultat.group(1)) if resultat else 0
+
+    return {
+        "societes": lire("réussies"),
+        "modifications": lire("modifiées"),
+        "sans_modification": lire("sans changement"),
+        "erreurs": lire("erreurs"),
+    }
 
 
 def _nom_base(date_rapport: datetime) -> str:
@@ -114,10 +131,14 @@ def _section_markdown(
         "",
     ]
     if changements:
-        lignes.extend(["| Champ | Ancienne valeur | Nouvelle valeur |", "|---|---|---|"])
+        lignes.extend([
+            "| Niveau | Champ | Ancienne valeur | Nouvelle valeur |",
+            "|---|---|---|---|",
+        ])
         for changement in changements:
             lignes.append(
-                f"| {changement.libelle} | {formater_valeur(changement.ancienne_valeur)} "
+                f"| {changement.niveau.capitalize()} | {changement.libelle} "
+                f"| {formater_valeur(changement.ancienne_valeur)} "
                 f"| {formater_valeur(changement.nouvelle_valeur)} |"
             )
     else:
@@ -168,6 +189,7 @@ h1,h2,h3{{margin-top:0}} .resume{{display:grid;grid-template-columns:repeat(4,1f
 .meta,.vide{{color:#5d6d66}} table{{width:100%;border-collapse:collapse;margin-top:14px}}
 th,td{{padding:10px;border-bottom:1px solid #e1e7e3;text-align:left;vertical-align:top}}
 th{{color:#53645d;font-size:12px;text-transform:uppercase}} .avant{{color:#9b332b}} .apres{{color:#087c68;font-weight:bold}}
+.niveau{{font-weight:bold}} .niveau-critique{{color:#a32222}} .niveau-important{{color:#9a5b00}} .niveau-informatif{{color:#42675b}}
 @media(max-width:650px){{.resume{{grid-template-columns:1fr 1fr}} table{{font-size:13px}}}}
 </style></head><body><main>
 <header><h1>{formater_html(titre)}</h1><p>Généré le {date_rapport.strftime('%d/%m/%Y à %H:%M:%S')}</p><p>{formater_html(introduction) if introduction else ''}</p></header>
@@ -196,12 +218,13 @@ def _section_html(societe: Societe, changements: list[Changement]) -> str:
         for libelle, valeur in informations
     )
     lignes_changements = "".join(
-        f"<tr><td>{formater_html(c.libelle)}</td><td class=\"avant\">{formater_html(c.ancienne_valeur)}</td>"
+        f"<tr><td class=\"niveau niveau-{c.niveau}\">{formater_html(c.niveau.capitalize())}</td>"
+        f"<td>{formater_html(c.libelle)}</td><td class=\"avant\">{formater_html(c.ancienne_valeur)}</td>"
         f"<td class=\"apres\">{formater_html(c.nouvelle_valeur)}</td></tr>"
         for c in changements
     )
     changements_html = (
-        f"<table><thead><tr><th>Champ</th><th>Ancienne valeur</th><th>Nouvelle valeur</th></tr></thead>"
+        f"<table><thead><tr><th>Niveau</th><th>Champ</th><th>Ancienne valeur</th><th>Nouvelle valeur</th></tr></thead>"
         f"<tbody>{lignes_changements}</tbody></table>"
         if changements else '<p class="vide">Aucun changement détecté.</p>'
     )
@@ -266,3 +289,49 @@ def generer_synthese_hebdomadaire(
     )
     nettoyer_rapports_anciens(dossier)
     return chemin
+
+
+def generer_synthese_portefeuille(
+    nom: str,
+    sirens: list[str],
+    chemin_base: Path = BASE_SQLITE,
+    dossier: Path = DOSSIER_RAPPORTS,
+    date_fin: datetime | None = None,
+) -> Path:
+    """Crée une synthèse hebdomadaire limitée à un portefeuille."""
+    date_fin = date_fin or datetime.now()
+    date_debut = date_fin - timedelta(days=7)
+    sirens = {str(siren).strip() for siren in sirens}
+    collectes = [
+        collecte for collecte in lire_collectes_entre(
+            date_debut, date_fin, chemin_base
+        ) if collecte.siren in sirens
+    ]
+    erreurs = [
+        erreur for erreur in lire_erreurs_taches_entre(
+            date_debut, date_fin, chemin_base
+        ) if erreur[0] in sirens
+    ]
+    par_siren: dict[str, list[Societe]] = defaultdict(list)
+    for collecte in collectes:
+        par_siren[collecte.siren].append(collecte)
+    resultats = []
+    for siren, historique in par_siren.items():
+        precedente = lire_collecte_avant(siren, date_debut, chemin_base)
+        reference, derniere = precedente or historique[0], historique[-1]
+        changements = (
+            detecter_changements(reference, derniere)
+            if reference is not derniere else []
+        )
+        resultats.append((derniere, changements))
+    nom_fichier = re.sub(r"[^a-z0-9]+", "_", nom.casefold()).strip("_")
+    return generer_rapport_html(
+        sorted(resultats, key=lambda x: x[0].raison_sociale or x[0].siren),
+        dossier=dossier, date_rapport=date_fin, erreurs=erreurs,
+        titre=f"Synthèse hebdomadaire — {nom}",
+        prefixe=f"portefeuille_{nom_fichier or 'sans_nom'}",
+        introduction=(
+            f"Portefeuille {nom} · période du "
+            f"{date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')}"
+        ),
+    )

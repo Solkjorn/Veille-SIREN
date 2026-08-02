@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titre %}Erreurs · Veille-SIREN{% endblock %}
+{% block contenu %}
+<section class="introduction">
+  <p class="surtitre">Reprises ciblées</p>
+  <h2>Erreurs de collecte</h2>
+  <p>Identifiez les sociétés concernées, consultez le diagnostic et relancez uniquement ce qui est nécessaire.</p>
+</section>
+
+{% if executions %}
+<div class="liste-executions-erreur">
+  {% for e in executions %}
+  <section class="panneau execution-erreur">
+    <header class="entete-execution-erreur">
+      <div>
+        <p class="surtitre">{{ e.source or 'Toutes les sources' }}</p>
+        <h3>{{ e.erreurs }} erreur{% if e.erreurs != 1 %}s{% endif %} de collecte</h3>
+        <p>{{ e.date_debut }}</p>
+      </div>
+      {% if e.rapport_nom %}
+      <a class="bouton" href="{{ url_for('consulter_rapport', nom_fichier=e.rapport_nom) }}" target="_blank" rel="noopener">Consulter le rapport complet</a>
+      {% endif %}
+    </header>
+
+    {% if e.entreprises %}
+    <div class="tableau-defilant">
+      <table>
+        <thead><tr><th>Entreprise</th><th>Rapport d'erreur</th><th>Action</th></tr></thead>
+        <tbody>
+          {% for entreprise in e.entreprises %}
+          <tr>
+            <td>
+              {% if entreprise.surveillee %}
+              <a class="lien-societe-erreur" href="{{ url_for('historique_societe', siren=entreprise.siren) }}">
+                <strong>{{ entreprise.siren }}</strong>
+                {% if entreprise.nom %}<span>{{ entreprise.nom }}</span>{% endif %}
+              </a>
+              {% else %}<strong>{{ entreprise.siren }}</strong>{% endif %}
+            </td>
+            <td>
+              <details class="detail-erreur">
+                <summary>Afficher le diagnostic</summary>
+                <pre>{{ entreprise.message or 'Aucun détail enregistré.' }}</pre>
+              </details>
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('reprendre_siren', siren=entreprise.siren) }}">
+                <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+                <button class="bouton primaire">Relancer</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="etat-vide">Le détail des entreprises n'est pas disponible pour cette ancienne exécution.{% if e.rapport_nom %} Consultez le rapport complet.{% endif %}</p>
+    {% endif %}
+    {% if e.message %}<p class="message-execution"><strong>Message d'exécution :</strong> {{ e.message }}</p>{% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% else %}
+<section class="panneau"><p class="etat-vide">Aucune erreur restante.</p></section>
+{% endif %}
+
+<section class="panneau contenu-panneau">
+  <h3>Relancer un SIREN</h3>
+  <form class="formulaire-commentaire" method="post" action="{{ url_for('reprendre_siren', siren='000000000') }}" onsubmit="this.action=this.action.replace('000000000',this.siren.value)">
+    <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+    <label><span>SIREN</span><input name="siren" pattern="[0-9]{9}" required></label>
+    <button class="bouton primaire">Relancer</button>
+  </form>
+</section>
+{% endblock %}

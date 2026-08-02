@@ -13,14 +13,23 @@
         <p class="surtitre">Veille juridique</p>
         <h1>Veille-SIREN</h1>
       </div>
-      <span class="phase">Phase 3 · Interface locale</span>
+      <span class="phase">Phases 18–25 · Consolidation</span>
     </header>
     <nav class="navigation-principale" aria-label="Navigation principale">
-      <a href="{{ url_for('tableau_de_bord') }}">Tableau de bord</a>
-      <a href="{{ url_for('imports') }}">Imports</a>
-      <a href="{{ url_for('collectes') }}">Collectes</a>
-      <a href="{{ url_for('journal') }}">Journal</a>
-      <a href="{{ url_for('rapports') }}">Rapports</a>
+      <a class="{{ 'active' if request.endpoint == 'tableau_de_bord' }}" href="{{ url_for('tableau_de_bord') }}">Tableau de bord</a>
+      <a class="{{ 'active' if request.endpoint in ('alertes', 'modifier_statut_alerte', 'modifier_configuration_alertes') }}" href="{{ url_for('alertes') }}">Alertes</a>
+      <a class="{{ 'active' if request.endpoint in ('imports', 'previsualiser_import') }}" href="{{ url_for('imports') }}">Imports</a>
+      <a class="{{ 'active' if request.endpoint == 'automatisation' }}" href="{{ url_for('automatisation') }}">Automatisation</a>
+      <a class="{{ 'active' if request.endpoint == 'collectes' }}" href="{{ url_for('collectes') }}">Collectes</a>
+      <a class="{{ 'active' if request.endpoint in ('documents', 'telecharger_document_inpi') }}" href="{{ url_for('documents') }}">Documents</a>
+      <a class="{{ 'active' if request.endpoint == 'erreurs' }}" href="{{ url_for('erreurs') }}">Erreurs</a>
+      <a class="{{ 'active' if request.endpoint == 'portefeuilles' }}" href="{{ url_for('portefeuilles') }}">Portefeuilles</a>
+      <a class="{{ 'active' if request.endpoint == 'recherche_globale' }}" href="{{ url_for('recherche_globale') }}">Recherche</a>
+      <details class="menu-navigation"><summary>Gestion</summary><div>
+        <a href="{{ url_for('journal') }}">Journal</a><a href="{{ url_for('rapports') }}">Rapports</a>
+        <a href="{{ url_for('sauvegardes') }}">Sauvegardes</a><a href="{{ url_for('audit') }}">Audit</a>
+        <a href="{{ url_for('diagnostic') }}">Diagnostic</a>
+      </div></details>
     </nav>
     <main class="contenu">
       {% with messages = get_flashed_messages(with_categories=true) %}

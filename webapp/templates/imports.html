@@ -7,6 +7,21 @@
     <p>Ajoutez ou actualisez la liste des sociétés surveillées depuis Excel.</p>
   </section>
 
+  <section class="panneau">
+    <div class="titre-panneau">
+      <div>
+        <p class="surtitre">Modèle prêt à remplir</p>
+        <h3>Télécharger le modèle Excel</h3>
+      </div>
+      <a class="bouton lien-bouton" href="{{ url_for('telecharger_modele_import') }}">
+        Télécharger le modèle
+      </a>
+    </div>
+    <p class="description-panneau">Le classeur contient la feuille <strong>Societes</strong> et les colonnes
+      obligatoires <strong>SIREN</strong>, <strong>Actif</strong> et
+      <strong>Commentaire</strong>. Ajoutez une société par ligne.</p>
+  </section>
+
   <section class="panneau panneau-import">
     <div>
       <p class="surtitre">Import Excel</p>
@@ -16,7 +31,7 @@
     <form method="post" enctype="multipart/form-data"
           action="{{ url_for('previsualiser_import') }}">
       <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
-      <label>
+      <label class="champ-fichier">
         <span>Fichier .xlsx</span>
         <input type="file" name="fichier_excel" accept=".xlsx" required>
       </label>

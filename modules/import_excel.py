@@ -6,7 +6,7 @@ from io import BytesIO
 from pathlib import Path
 from zipfile import BadZipFile
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 
 from config import BASE_SQLITE
@@ -15,6 +15,23 @@ from modules.validation import siren_valide
 
 NOM_FEUILLE = "Societes"
 COLONNES_ATTENDUES = ("SIREN", "Actif", "Commentaire")
+
+
+def creer_modele_import_excel() -> BytesIO:
+    """Crée en mémoire un classeur vide strictement conforme à l'import."""
+    classeur = Workbook()
+    feuille = classeur.active
+    feuille.title = NOM_FEUILLE
+    feuille.append(COLONNES_ATTENDUES)
+    feuille.freeze_panes = "A2"
+    feuille.column_dimensions["A"].width = 16
+    feuille.column_dimensions["B"].width = 12
+    feuille.column_dimensions["C"].width = 45
+    tampon = BytesIO()
+    classeur.save(tampon)
+    classeur.close()
+    tampon.seek(0)
+    return tampon
 
 
 @dataclass(frozen=True)

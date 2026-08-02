@@ -11,7 +11,9 @@ from modules.base_donnees import (
 from modules.notion import (
     ErreurNotion,
     normaliser_identifiant_notion,
+    publier_rapport_developpement,
     publier_rapport_veille,
+    publier_synthese_hebdomadaire,
     verifier_connexion_notion,
 )
 
@@ -99,6 +101,81 @@ class TestNotion(unittest.TestCase):
                 )
             )
             self.assertEqual(len(requetes), 1)
+
+    def test_publier_rapport_developpement(self):
+        with tempfile.TemporaryDirectory() as dossier:
+            chemin_base = Path(dossier) / "veille.sqlite"
+            rapport = Path(dossier) / "developpement_20260802.md"
+            rapport.write_text(
+                "# Rapport journalier\n\n## Travaux réalisés\n\n- Ajout Notion\n",
+                encoding="utf-8",
+            )
+            configurer_cible_notion(
+                "rapports_developpement", "collection://journal-1", chemin_base
+            )
+            requetes = []
+
+            def ouvrir(requete, timeout):
+                requetes.append(json.loads(requete.data.decode("utf-8")))
+                return _Reponse({
+                    "id": "page-dev-1",
+                    "url": "https://notion.test/page-dev-1",
+                })
+
+            url = publier_rapport_developpement(
+                rapport, chemin_base, jeton="secret_test", ouvre=ouvrir
+            )
+
+            self.assertEqual(url, "https://notion.test/page-dev-1")
+            donnees = requetes[0]
+            self.assertEqual(
+                donnees["parent"]["data_source_id"], "journal-1"
+            )
+            self.assertEqual(
+                donnees["properties"]["Compte rendu"]["title"][0]
+                ["text"]["content"],
+                "Compte rendu — 2 août 2026",
+            )
+            self.assertEqual(donnees["children"][0]["type"], "heading_2")
+            self.assertTrue(
+                publication_notion_existe(rapport.stem, chemin_base)
+            )
+
+    def test_refuser_un_nom_de_rapport_developpement_invalide(self):
+        with self.assertRaisesRegex(ValueError, "developpement_YYYYMMDD"):
+            publier_rapport_developpement(Path("rapport.md"), jeton="test")
+
+    def test_publier_synthese_hebdomadaire(self):
+        with tempfile.TemporaryDirectory() as dossier:
+            chemin_base = Path(dossier) / "veille.sqlite"
+            rapport = Path(dossier) / "synthese_hebdomadaire_20260803_070000.html"
+            rapport.write_text(
+                "<strong>4</strong>réussies <strong>2</strong>modifiées "
+                "<strong>1</strong>erreurs",
+                encoding="utf-8",
+            )
+            configurer_cible_notion(
+                "rapports_veille", "collection://veille-1", chemin_base
+            )
+            requetes = []
+
+            def ouvrir(requete, timeout):
+                requetes.append(json.loads(requete.data.decode("utf-8")))
+                return _Reponse({
+                    "id": "page-synthese-1",
+                    "url": "https://notion.test/page-synthese-1",
+                })
+
+            url = publier_synthese_hebdomadaire(
+                rapport, chemin_base, jeton="secret_test", ouvre=ouvrir
+            )
+
+            self.assertEqual(url, "https://notion.test/page-synthese-1")
+            proprietes = requetes[0]["properties"]
+            self.assertEqual(proprietes["Type"]["select"]["name"], "Hebdomadaire")
+            self.assertEqual(proprietes["Sociétés"]["number"], 4)
+            self.assertEqual(proprietes["Modifications"]["number"], 2)
+            self.assertEqual(proprietes["Erreurs"]["number"], 1)
 
 
 if __name__ == "__main__":

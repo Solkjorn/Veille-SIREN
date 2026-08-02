@@ -4,7 +4,9 @@ from urllib.request import Request, urlopen
 
 
 class ErreurAPI(ConnectionError):
-    pass
+    def __init__(self, message: str, *, temporaire: bool = True):
+        super().__init__(message)
+        self.temporaire = temporaire
 
 
 def requete_json(
@@ -26,6 +28,26 @@ def requete_json(
         with urlopen(requete, timeout=delai) as reponse:
             return json.loads(reponse.read().decode("utf-8"))
     except HTTPError as erreur:
-        raise ErreurAPI(f"API HTTP {erreur.code} pour {url}") from erreur
+        temporaire = erreur.code in {408, 425, 429} or erreur.code >= 500
+        raise ErreurAPI(
+            f"API HTTP {erreur.code} pour {url}", temporaire=temporaire
+        ) from erreur
     except (URLError, TimeoutError, json.JSONDecodeError) as erreur:
+        raise ErreurAPI(f"API indisponible pour {url}: {erreur}") from erreur
+
+
+def requete_binaire(
+    url: str, entetes: dict[str, str] | None = None, delai: int = 30
+) -> tuple[bytes, str]:
+    """Télécharge un contenu binaire et retourne aussi son type MIME."""
+    requete = Request(url, headers=entetes or {}, method="GET")
+    try:
+        with urlopen(requete, timeout=delai) as reponse:
+            return reponse.read(), reponse.headers.get_content_type()
+    except HTTPError as erreur:
+        temporaire = erreur.code in {408, 425, 429} or erreur.code >= 500
+        raise ErreurAPI(
+            f"API HTTP {erreur.code} pour {url}", temporaire=temporaire
+        ) from erreur
+    except (URLError, TimeoutError) as erreur:
         raise ErreurAPI(f"API indisponible pour {url}: {erreur}") from erreur

@@ -85,9 +85,55 @@ veille avec la date, les volumes, le nombre de modifications et les erreurs.
 Le registre SQLite empêche une seconde publication du même fichier. Une panne
 Notion est journalisée mais ne bloque ni la collecte ni le rapport local.
 
+Pour publier le compte rendu de développement complet à la clôture d'une
+session :
+
+```powershell
+python -m modules.notion --rapport-developpement rapports/developpement_YYYYMMDD.md
+```
+
+Le fichier doit suivre exactement ce nom. Les titres, listes et paragraphes
+Markdown sont convertis en blocs Notion, puis la publication est inscrite dans
+le même registre anti-doublon.
+
 ## Documentation officielle
 
 - INSEE : https://portail-api.insee.fr/catalog/api/2ba0e549-5587-3ef1-9082-99cd865de66f
 - INPI : https://www.inpi.fr/ressources/formalites-dentreprises/acces-lapi-formalite-rne
 - BODACC : https://www.data.gouv.fr/dataservices/api-bulletin-officiel-des-annonces-civiles-et-commerciales-bodacc
 - Notion : https://developers.notion.com/docs/getting-started
+
+## Planification Windows
+
+La tâche `Veille-SIREN - collecte hebdomadaire` exécute la collecte chaque
+lundi à 7 h, puis génère la synthèse après la fin de la collecte. Si le PC est
+éteint à 7 h, Windows lance la tâche dès que possible au prochain démarrage.
+Une seconde exécution est ignorée tant que la première n'est pas terminée.
+
+Pour créer ou remettre à jour cette tâche :
+
+```powershell
+python -m modules.planification --installer --source pappers
+```
+
+Le jour, l'heure, la minute et la source peuvent également être modifiés depuis
+la page « Automatisation » de l'interface web.
+
+La tâche utilise l'environnement Python local hors du dépôt et s'exécute sans
+fenêtre Chromium. Elle est limitée à deux heures et ne s'exécute que lorsque
+le compte Windows de l'utilisateur est ouvert.
+
+## Envoi SMTP
+
+La synthèse peut être envoyée par tout fournisseur SMTP compatible avec TLS.
+Les paramètres et le mot de passe sont chiffrés par Windows DPAPI hors du
+dépôt. Pour les enregistrer :
+
+```powershell
+python -m modules.secrets_windows smtp
+```
+
+Le serveur, le port, l'identifiant, le mot de passe d'application, l'adresse
+d'expédition et le destinataire sont demandés de manière interactive. Une
+absence de configuration ou un échec SMTP est journalisé sans interrompre la
+publication locale et Notion.

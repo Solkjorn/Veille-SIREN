@@ -6,8 +6,15 @@ from datetime import datetime
 from pathlib import Path
 
 from modules.base_donnees import (
+    changer_statut_alerte,
+    configurer_preferences_alertes,
+    configurer_destinataire_portefeuille,
+    creer_portefeuille,
+    enregistrer_audit,
     configurer_cible_notion,
+    demarrer_execution_veille,
     enregistrer_etat_tache,
+    enregistrer_alertes,
     enregistrer_publication_notion,
     enregistrer_societe,
     initialiser_base,
@@ -16,14 +23,45 @@ from modules.base_donnees import (
     lire_collectes_entre,
     lire_collecte_avant,
     lire_derniere_collecte,
+    lire_document_inpi,
+    lire_documents_inpi,
     lire_erreurs_taches_entre,
+    lire_executions_veille,
     lire_cible_notion,
+    lire_alertes,
+    lire_preferences_alertes,
+    lire_portefeuilles,
+    lire_audit,
     publication_notion_existe,
+    terminer_execution_veille,
 )
+from modules.comparaison import Changement
 from modules.modele import Societe
 
 
 class TestBaseDonnees(unittest.TestCase):
+
+    def test_portefeuille_destinataire_et_journal_audit(self):
+        identifiant = creer_portefeuille(
+            "Clients", destinataire="initial@test.fr", chemin=self.chemin_base
+        )
+        configurer_destinataire_portefeuille(
+            identifiant, "equipe@test.fr", self.chemin_base
+        )
+        enregistrer_audit(
+            "configuration_destinataire", str(identifiant), chemin=self.chemin_base
+        )
+
+        self.assertEqual(
+            lire_portefeuilles(self.chemin_base)[0]["destinataire"],
+            "equipe@test.fr",
+        )
+        self.assertEqual(lire_audit(10, self.chemin_base)[0]["action"],
+                         "configuration_destinataire")
+        with self.assertRaisesRegex(ValueError, "invalide"):
+            configurer_destinataire_portefeuille(
+                identifiant, "adresse-invalide", self.chemin_base
+            )
 
     def setUp(self):
         self.dossier_temporaire = tempfile.TemporaryDirectory()
@@ -33,6 +71,92 @@ class TestBaseDonnees(unittest.TestCase):
 
     def tearDown(self):
         self.dossier_temporaire.cleanup()
+
+    def test_enregistre_et_dedoublonne_les_documents_inpi(self):
+        societe = Societe(
+            "542051180",
+            documents_inpi=[{
+                "identifiant": "acte-1", "type_document": "acte",
+                "date_depot": "2026-08-02", "libelle": "Statuts mis à jour",
+                "nom_document": "statuts", "confidentialite": "Public",
+            }],
+        )
+        enregistrer_societe(societe, self.chemin_base)
+        enregistrer_societe(societe, self.chemin_base)
+        documents = lire_documents_inpi("542051180", self.chemin_base)
+        self.assertEqual(len(documents), 1)
+        self.assertEqual(documents[0]["libelle"], "Statuts mis à jour")
+        self.assertEqual(
+            lire_document_inpi("acte-1", "acte", self.chemin_base)["siren"],
+            "542051180",
+        )
+
+    def test_enregistre_dedoublonne_et_traite_une_alerte(self):
+        changement = Changement(
+            champ="statut", libelle="Statut", ancienne_valeur="Active",
+            nouvelle_valeur="Radiée", niveau="critique",
+            categorie="cessation_radiation",
+            regle="statut de cessation ou radiation",
+        )
+        date_detection = datetime(2026, 8, 3, 7, 5)
+
+        premier = enregistrer_alertes(
+            "542051180", [changement], source="INSEE",
+            date_detection=date_detection, chemin=self.chemin_base,
+        )
+        doublon = enregistrer_alertes(
+            "542051180", [changement], source="BODACC",
+            date_detection=date_detection, chemin=self.chemin_base,
+        )
+        alertes = lire_alertes(
+            niveau="critique", statut="nouvelle", chemin=self.chemin_base
+        )
+
+        self.assertEqual((premier, doublon), (1, 0))
+        self.assertEqual(len(alertes), 1)
+        self.assertEqual(alertes[0]["categorie"], "cessation_radiation")
+        changer_statut_alerte(
+            alertes[0]["identifiant"], "traitee", self.chemin_base
+        )
+        self.assertEqual(
+            lire_alertes(statut="traitee", chemin=self.chemin_base)[0]["statut"],
+            "traitee",
+        )
+
+    def test_preferences_filtrent_l_alerte_sans_supprimer_le_changement(self):
+        self.assertIn(
+            "capital", lire_preferences_alertes("542051180", self.chemin_base)
+        )
+        configurer_preferences_alertes(
+            "542051180", {"dirigeant"}, self.chemin_base
+        )
+        changement = Changement(
+            champ="capital", libelle="Capital", ancienne_valeur="100 €",
+            nouvelle_valeur="200 €", niveau="important", categorie="capital",
+            regle="modification du capital",
+        )
+
+        ajoutees = enregistrer_alertes(
+            "542051180", [changement], chemin=self.chemin_base
+        )
+
+        self.assertEqual(ajoutees, 0)
+        self.assertEqual(lire_alertes(chemin=self.chemin_base), [])
+
+    def test_cycle_de_vie_execution_globale(self):
+        identifiant = demarrer_execution_veille(
+            "hebdomadaire", "pappers", self.chemin_base
+        )
+        terminer_execution_veille(
+            identifiant, "succes", societes=4, modifications=2, erreurs=1,
+            rapport="synthese.html", chemin=self.chemin_base,
+        )
+        executions = lire_executions_veille(20, self.chemin_base)
+        self.assertEqual(len(executions), 1)
+        self.assertEqual(executions[0]["statut"], "succes")
+        self.assertEqual(executions[0]["societes"], 4)
+        self.assertEqual(executions[0]["modifications"], 2)
+        self.assertEqual(executions[0]["rapport"], "synthese.html")
 
     def test_initialiser_base_cree_la_table_collectes(self):
         initialiser_base(self.chemin_base)
@@ -83,6 +207,10 @@ class TestBaseDonnees(unittest.TestCase):
             derniere_publication_bodacc="10/07/2026",
             dernier_changement="MODIFICATION — Capital",
             source="Pappers",
+            provenance={"statut": "INSEE"},
+            dates_provenance={"statut": "2026-07-29T19:30:00"},
+            erreurs_sources={"INPI": "indisponible"},
+            contradictions={"raison_sociale": {"INSEE": "TOTAL", "INPI": "Total"}},
             date_collecte=date_collecte,
         )
 
@@ -115,6 +243,13 @@ class TestBaseDonnees(unittest.TestCase):
                 "2026-07-29T19:30:00",
             ),
         )
+        relue = lire_derniere_collecte("542051180", self.chemin_base)
+        self.assertEqual(relue.provenance, {"statut": "INSEE"})
+        self.assertEqual(
+            relue.dates_provenance, {"statut": "2026-07-29T19:30:00"}
+        )
+        self.assertEqual(relue.erreurs_sources, {"INPI": "indisponible"})
+        self.assertIn("raison_sociale", relue.contradictions)
 
     def test_enregistrer_societe_conserve_l_historique(self):
         societe = Societe(siren="542051180", statut="Active")

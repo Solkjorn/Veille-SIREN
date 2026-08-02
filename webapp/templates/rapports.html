@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block titre %}Rapports · Veille-SIREN{% endblock %}
 {% block contenu %}
+  <section class="panneau contenu-panneau"><h3>Exports instantanés</h3><p>Sélectionnez les sociétés à inclure.</p><form method="get" action="{{ url_for('exporter', format_export='xlsx') }}"><div class="grille-preferences">{% for s in societes %}<label><input type="checkbox" name="siren" value="{{ s.siren }}" checked> {{ s.siren }}</label>{% endfor %}</div><div class="boutons-actions"><button class="bouton primaire">Exporter Excel</button><button class="bouton" formaction="{{ url_for('exporter', format_export='pdf') }}">Exporter PDF</button></div></form></section>
   <section class="introduction">
     <p class="surtitre">Archives</p><h2>Rapports disponibles</h2>
     <p>Rapports de veille et rapports journaliers de développement.</p>

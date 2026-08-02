@@ -12,11 +12,27 @@ from modules.rapport import (
     formater_valeur,
     generer_rapport,
     generer_synthese_hebdomadaire,
+    generer_synthese_portefeuille,
     nettoyer_rapports_anciens,
 )
 
 
 class TestRapport(unittest.TestCase):
+
+    def test_synthese_portefeuille_ne_contient_que_ses_societes(self):
+        with tempfile.TemporaryDirectory() as dossier:
+            base = Path(dossier) / "veille.sqlite"
+            rapports = Path(dossier) / "rapports"
+            for siren, nom in (("111111111", "CLIENT"), ("222222222", "AUTRE")):
+                enregistrer_societe(
+                    Societe(siren=siren, raison_sociale=nom), base
+                )
+            chemin = generer_synthese_portefeuille(
+                "Clients", ["111111111"], base, rapports
+            )
+            contenu = chemin.read_text(encoding="utf-8")
+            self.assertIn("CLIENT", contenu)
+            self.assertNotIn("AUTRE", contenu)
 
     def test_formater_valeur_protege_les_tableaux_markdown(self):
         self.assertEqual(
@@ -40,6 +56,9 @@ class TestRapport(unittest.TestCase):
                 libelle="Capital",
                 ancienne_valeur="100 000 €",
                 nouvelle_valeur="120 000 €",
+                niveau="important",
+                categorie="capital",
+                regle="modification du capital",
             )
         ]
         date_rapport = datetime(2026, 7, 29, 20, 15, 30)
@@ -51,6 +70,7 @@ class TestRapport(unittest.TestCase):
                 date_rapport=date_rapport,
             )
             contenu = chemin.read_text(encoding="utf-8")
+            self.assertIn("Important", contenu)
             markdown_existe = (
                 Path(dossier) / "veille_20260729_201530.md"
             ).is_file()

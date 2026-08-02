@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block titre %}Alertes · Veille-SIREN{% endblock %}
+{% block contenu %}
+  <section class="introduction">
+    <p class="surtitre">Surveillance prioritaire</p>
+    <h2>Alertes juridiques</h2>
+    <p>Les événements critiques sont présentés en premier.</p>
+  </section>
+  <section class="panneau">
+    <form class="configuration-alertes" method="post" action="{{ url_for('modifier_configuration_alertes') }}">
+      <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+      <label class="interrupteur"><input type="checkbox" name="alertes_immediates" value="1" {{ 'checked' if alertes_immediates }}><span aria-hidden="true"></span><strong>Envoyer immédiatement les alertes critiques par courriel</strong></label>
+      <p class="aide">Envoie uniquement les nouvelles alertes critiques. Une erreur d'envoi ne bloque jamais la collecte.</p>
+      <button class="bouton" type="submit">Enregistrer</button>
+    </form>
+    <form method="get" class="filtres-alertes">
+      <label>Niveau
+        <select name="niveau">
+          <option value="">Tous</option>
+          {% for valeur in ('critique', 'important', 'informatif') %}
+            <option value="{{ valeur }}" {{ 'selected' if niveau_selectionne == valeur }}>{{ valeur|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>État
+        <select name="statut">
+          <option value="">Tous</option>
+          {% for valeur, libelle in (('nouvelle', 'Nouvelle'), ('lue', 'Lue'), ('traitee', 'Traitée')) %}
+            <option value="{{ valeur }}" {{ 'selected' if statut_selectionne == valeur }}>{{ libelle }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="bouton primaire" type="submit">Filtrer</button>
+    </form>
+    {% if alertes %}
+      <div class="tableau-defilant"><table>
+        <thead><tr><th>Niveau</th><th>Société</th><th>Événement</th><th>Date et source</th><th>État</th></tr></thead>
+        <tbody>
+          {% for alerte in alertes %}
+            <tr>
+              <td><span class="badge niveau-{{ alerte.niveau }}">{{ alerte.niveau|capitalize }}</span></td>
+              <td><a href="{{ url_for('historique_societe', siren=alerte.siren) }}">{{ alerte.siren }}</a></td>
+              <td><strong>{{ alerte.regle }}</strong><br>{{ alerte.ancienne_valeur or 'Non renseigné' }} → {{ alerte.nouvelle_valeur or 'Non renseigné' }}</td>
+              <td>{{ alerte.date_detection|replace('T', ' ') }}<br>{{ alerte.source }}</td>
+              <td>
+                <form method="post" action="{{ url_for('modifier_statut_alerte', identifiant=alerte.identifiant) }}">
+                  <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+                  <select name="statut">
+                    {% for valeur, libelle in (('nouvelle', 'Nouvelle'), ('lue', 'Lue'), ('traitee', 'Traitée')) %}
+                      <option value="{{ valeur }}" {{ 'selected' if alerte.statut == valeur }}>{{ libelle }}</option>
+                    {% endfor %}
+                  </select>
+                  <button class="bouton" type="submit">Mettre à jour</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    {% else %}
+      <p class="etat-vide">Aucune alerte pour ces filtres.</p>
+    {% endif %}
+  </section>
+{% endblock %}

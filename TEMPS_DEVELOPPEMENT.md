@@ -23,6 +23,9 @@ et n'inclut pas les interruptions.
 | 4 | 31/07/2026 | 17:36 | 18:53 | ≈ 1 h 15 | Relevée |
 | 5 | 31/07/2026 | 19:28 | 19:48 | ≈ 15 min | Relevée |
 | 6 | 01/08/2026 | 12:42 | 14:11 | ≈ 1 h 29 | Relevée |
+| 7 | 02/08/2026 | 11:31 | 12:54 | ≈ 1 h 23 | Relevée |
+| 8 | 02/08/2026 | 13:26 | 14:06 | ≈ 40 min | Relevée |
+| 9 | 02/08/2026 | ≈ 17:20 | 20:04 | ≈ 2 h 06 | Mixte |
 
 ## Détail des travaux
 
@@ -83,9 +86,45 @@ et n'inclut pas les interruptions.
 | 01/08/2026 | Pré-0.2 | Validation du jeton Notion, normalisation des identifiants de source et diagnostic de l'accès à la base | ≈ 14 min | ≈ 10 h 33 |
 | 01/08/2026 | Pré-0.2 | Première publication Notion réelle depuis quatre instantanés SQLite et validation de l'anti-doublon | ≈ 5 min | ≈ 10 h 38 |
 | 01/08/2026 | Pré-0.2 | Clôture de session, validation globale et sauvegarde GitHub | ≈ 2 min | ≈ 10 h 40 |
+| 02/08/2026 | Pré-0.2 | Clôture de la phase 7 : publication automatisée des rapports de développement et commande dédiée | ≈ 2 min | ≈ 10 h 42 |
+| 02/08/2026 | Pré-0.2 | Phase 8 : orchestration collecte-synthèse, tâche Windows du lundi à 7 h et rattrapage au démarrage | ≈ 7 min | ≈ 10 h 49 |
+| 02/08/2026 | Pré-0.2 | Phase 8 : publication Notion de la synthèse, suivi web de la tâche et lancement manuel | ≈ 5 min | ≈ 10 h 54 |
+| 02/08/2026 | Pré-0.2 | Phase 8 : connecteur SMTP TLS, coffre DPAPI et gestion non bloquante des erreurs d'envoi | ≈ 2 min | ≈ 10 h 56 |
+| 02/08/2026 | Pré-0.2 | Validation SMTP réelle : envoi Gmail de la synthèse HTML vers Proton Mail | ≈ 7 min | ≈ 11 h 03 |
+| 02/08/2026 | Pré-0.2 | Interface : séparation des sociétés modifiées et stables, modèle Excel d'import téléchargeable | ≈ 6 min | ≈ 11 h 09 |
+| 02/08/2026 | Pré-0.2 | Phase 8 : planification configurable, historique SQLite global et bilan web des exécutions | ≈ 7 min | ≈ 11 h 16 |
+| 02/08/2026 | Pré-0.2 | Simulation complète par la tâche Windows : 56 sociétés, rapports, Notion, courriel et bilan des erreurs | ≈ 34 min | ≈ 11 h 50 |
+| 02/08/2026 | Pré-0.2 | Phase 9 : sauvegarde locale automatisée et vérifiée, rétention, lancement Flask local et protections HTTP | ≈ 9 min | ≈ 11 h 59 |
+| 02/08/2026 | Pré-0.2 | Cadrage de la partie 2 : collecte multisource fiable validée comme premier chantier | ≈ 4 min | ≈ 12 h 03 |
+| 02/08/2026 | Pré-0.2 | Cadrage de la partie 2 : alertes enrichies validées comme second chantier | ≈ 3 min | ≈ 12 h 06 |
+| 02/08/2026 | Pré-0.2 | Validation et ordonnancement de l'ensemble des évolutions de la partie 2 | ≈ 3 min | ≈ 12 h 09 |
+| 02/08/2026 | Pré-0.2 | Clôture de la phase 9 : restauration vérifiée, reprise Windows et démarrage du collecteur multisource | ≈ 4 min | ≈ 12 h 13 |
+| 02/08/2026 | Pré-0.2 | Phase 10 : validation multisource réelle sur trois SIREN et correction des faux conflits BODACC | ≈ 7 min | ≈ 12 h 20 |
+| 02/08/2026 | Pré-0.2 | Phase 10 : Pappers conditionnel, mesure du gain et traçabilité multisource SQLite/web | ≈ 6 min | ≈ 12 h 26 |
+| 02/08/2026 | Pré-0.2 | Phase 10 : abandon de l'API Pappers, validation SQLite, bascule réelle et prévention des fausses alertes | ≈ 17 min | ≈ 12 h 43 |
+| 02/08/2026 | Pré-0.2 | Clôture de la phase 10 : reprises progressives ciblées et provenance datée | ≈ 6 min | ≈ 12 h 49 |
+| 02/08/2026 | Pré-0.2 | Phase 11 : taxonomie, classement et affichage prioritaire des alertes | ≈ 4 min | ≈ 12 h 53 |
+| 02/08/2026 | Pré-0.2 | Phase 11 : persistance, dédoublonnage et page web de traitement des alertes | ≈ 13 min | ≈ 13 h 06 |
+| 02/08/2026 | Pré-0.2 | Phase 11 : préférences de catégories d'alertes par société | ≈ 3 min | ≈ 13 h 09 |
+| 02/08/2026 | Pré-0.2 | Clôture de la phase 11 : alerte critique immédiate configurable, dédoublonnée et non bloquante | ≈ 7 min | ≈ 13 h 16 |
+| 02/08/2026 | Pré-0.2 | Phase 12 : première fiche société enrichie, situation actuelle et liens vers les sources officielles | ≈ 5 min | ≈ 13 h 21 |
+| 02/08/2026 | Pré-0.2 | Phase 12 : chronologie unifiée des collectes, changements et alertes par société | ≈ 4 min | ≈ 13 h 25 |
+| 02/08/2026 | Pré-0.2 | Phase 12 : publications BODACC dédiées, commentaire interne et cadrage des documents INPI | ≈ 4 min | ≈ 13 h 29 |
+| 02/08/2026 | Pré-0.2 | Vérification réelle des accès documentaires INPI : comptes et actes refusés en HTTP 403 | ≈ 4 min | ≈ 13 h 33 |
+| 02/08/2026 | Pré-0.2 | Activation et validation réelle des API INPI Comptes annuels et Actes | ≈ 2 min | ≈ 13 h 35 |
+| 02/08/2026 | Pré-0.2 | Refonte ergonomique des pages Alertes, Imports et Automatisation | ≈ 10 min | ≈ 13 h 45 |
+| 02/08/2026 | Pré-0.2 | Phase 12 : stockage des métadonnées INPI, affichage et téléchargement PDF à la demande | ≈ 6 min | ≈ 13 h 51 |
+| 02/08/2026 | Pré-0.2 | Refonte visuelle responsive de la fiche société enrichie | ≈ 4 min | ≈ 13 h 55 |
+| 02/08/2026 | Pré-0.2 | Accès direct aux fiches société depuis le tableau de bord | ≈ 2 min | ≈ 13 h 57 |
+| 02/08/2026 | Pré-0.2 | Phases 12 à 17 : validation documentaire, tableau opérationnel, exports, restauration, portefeuilles et intégration Windows | ≈ 15 min | ≈ 14 h 12 |
+| 02/08/2026 | Pré-0.2 | Page Erreurs : entreprises concernées, diagnostics dépliables, rapports cliquables et reprises ciblées | ≈ 12 min | ≈ 14 h 24 |
+| 02/08/2026 | Pré-0.2 | Phases 18 à 25 : tableau décisionnel, diffusion par portefeuille, documents, recherche, qualité, supervision, audit et diagnostic | ≈ 16 min | ≈ 14 h 40 |
+| 02/08/2026 | Pré-0.2 | Validation et inscription des phases 26 à 37 dans la feuille de route | ≈ 2 min | ≈ 14 h 42 |
+| 02/08/2026 | Pré-0.2 | Correction des données de compte INPI : JSON réel, extension correcte et validation des signatures PDF | ≈ 5 min | ≈ 14 h 47 |
+| 02/08/2026 | Pré-0.2 | Clôture de session, contrôles finaux et sauvegarde GitHub | ≈ 2 min | ≈ 14 h 49 |
 
 ## Total par version
 
 | Version | Durée |
 |---|---:|
-| Pré-0.2 | ≈ 10 h 40 |
+| Pré-0.2 | ≈ 14 h 49 |
