@@ -644,33 +644,159 @@ l'utilisateur. Elles devront être réalisées dans l'ordre ci-dessous. Leur
 périmètre approuvé ne doit pas être élargi, réduit ou réordonné sans discussion
 préalable.
 
-> Le détail fonctionnel de la proposition initiale n'était pas encore transcrit
-> dans ce fichier au moment de la validation. Il devra être reporté fidèlement
-> avant le démarrage de la phase 26, sans inventer de nouvelles exigences.
+Ces évolutions doivent rester utilisables gratuitement et localement. Aucun
+abonnement ni service payant ne sera rendu obligatoire. Une intégration
+externe facultative devra toujours posséder un fonctionnement local de repli.
 
-### Phase 26 — VALIDÉE, À RÉALISER
+### Phase 26 — Centre de configuration — VALIDÉE, À RÉALISER
 
-### Phase 27 — VALIDÉE, À RÉALISER
+- Réunir dans une page unique les réglages actuellement dispersés : sources,
+  collecte, courriel, Notion, sauvegardes et conservation des données.
+- Afficher pour chaque connecteur son état sans jamais révéler les secrets.
+- Proposer un test de connexion ciblé pour INSEE, INPI, BODACC, SMTP et Notion.
+- Distinguer clairement les valeurs enregistrées dans SQLite des secrets
+  protégés par DPAPI.
+- Journaliser les changements de configuration dans l'audit.
 
-### Phase 28 — VALIDÉE, À RÉALISER
+Critère de fin : l'installation et la vérification des connecteurs peuvent être
+réalisées depuis l'interface, sans modifier manuellement les fichiers Python.
 
-### Phase 29 — VALIDÉE, À RÉALISER
+### Phase 27 — Assistant de première utilisation — VALIDÉE, À RÉALISER
 
-### Phase 30 — VALIDÉE, À RÉALISER
+- Détecter une base neuve et proposer un parcours guidé non bloquant.
+- Guider la configuration des sources gratuites, de l'envoi, de la collecte du
+  lundi et de la première sauvegarde.
+- Permettre l'ajout manuel d'un premier SIREN ou l'import du modèle Excel.
+- Terminer par un diagnostic et une collecte de contrôle sur une société.
+- Permettre de quitter puis reprendre l'assistant sans perdre l'avancement.
 
-### Phase 31 — VALIDÉE, À RÉALISER
+Critère de fin : un utilisateur non technique peut rendre l'application
+opérationnelle en suivant uniquement les indications de l'interface.
 
-### Phase 32 — VALIDÉE, À RÉALISER
+### Phase 28 — Profils de surveillance — VALIDÉE, À RÉALISER
 
-### Phase 33 — VALIDÉE, À RÉALISER
+- Transformer les niveaux standard, renforcé et critique en profils explicites.
+- Associer à chaque profil les sources, catégories d'alertes, profondeur
+  documentaire et règles de notification pertinentes.
+- Appliquer un profil à une société ou à tout un portefeuille.
+- Afficher les exceptions individuelles sans masquer le profil hérité.
+- Fournir des profils préconfigurés modifiables sans supprimer les préférences
+  déjà enregistrées.
 
-### Phase 34 — VALIDÉE, À RÉALISER
+Critère de fin : le niveau de surveillance produit un comportement concret,
+compréhensible et couvert par des tests.
 
-### Phase 35 — VALIDÉE, À RÉALISER
+### Phase 29 — Calendrier et échéances juridiques — VALIDÉE, À RÉALISER
 
-### Phase 36 — VALIDÉE, À RÉALISER
+- Extraire des données disponibles les dates de clôture, dépôt de comptes,
+  assemblées, modifications et autres échéances identifiables.
+- Présenter une liste chronologique mensuelle, sans graphique.
+- Autoriser les échéances internes manuelles avec commentaire et responsable.
+- Ajouter des rappels configurables, sans confondre une estimation avec une
+  date officielle.
+- Exporter le calendrier au format iCalendar (`.ics`).
 
-### Phase 37 — VALIDÉE, À RÉALISER
+Critère de fin : les échéances à venir sont consultables, traçables et
+exportables, avec indication de leur origine.
+
+### Phase 30 — Tâches et suivi interne — VALIDÉE, À RÉALISER
+
+- Créer une tâche depuis une société, une alerte, un document ou une erreur.
+- Gérer un responsable, une échéance, une priorité et les états à faire, en
+  cours, en attente et terminée.
+- Afficher les tâches ouvertes dans la fiche et le tableau de bord.
+- Conserver l'historique des changements d'état dans le journal d'audit.
+- Exporter une liste de tâches sans imposer d'outil externe.
+
+Critère de fin : une alerte importante peut être transformée en action suivie
+jusqu'à sa clôture.
+
+### Phase 31 — Notes et dossiers de travail — VALIDÉE, À RÉALISER
+
+- Ajouter des notes datées aux sociétés, alertes, documents et tâches.
+- Distinguer le commentaire synthétique actuel des notes d'historique.
+- Permettre d'épingler une note importante et de rechercher dans leur contenu.
+- Autoriser des liens entre sociétés surveillées sans modifier les données
+  officielles collectées.
+- Inclure les notes uniquement dans les exports explicitement demandés.
+
+Critère de fin : le contexte interne est conservé dans une chronologie
+distincte, sauvegardée et auditable.
+
+### Phase 32 — Comparaison documentaire — VALIDÉE, À RÉALISER
+
+- Permettre de sélectionner deux actes ou comptes d'une même société.
+- Extraire localement le texte des PDF lorsque le document le permet.
+- Mettre en évidence les ajouts, suppressions et changements de passages.
+- Signaler clairement les PDF scannés non exploitables sans OCR.
+- Ne jamais présenter la comparaison automatique comme une analyse juridique.
+
+Critère de fin : deux versions textuelles peuvent être comparées sans envoyer
+les documents vers un service tiers.
+
+### Phase 33 — Règles d'alerte personnalisées — VALIDÉE, À RÉALISER
+
+- Créer des règles simples à partir d'un champ, d'un opérateur et d'une valeur.
+- Définir le niveau, le libellé et les destinataires de chaque règle.
+- Tester une règle sur l'historique sans créer d'alertes réelles.
+- Prévenir les doublons et les règles trop larges ou contradictoires.
+- Conserver la version de la règle ayant déclenché chaque alerte.
+
+Critère de fin : une règle peut être créée, simulée, activée et désactivée
+depuis l'interface en toute sécurité.
+
+### Phase 34 — Rapports programmables — VALIDÉE, À RÉALISER
+
+- Créer des modèles de rapport associant portefeuille, période, niveaux
+  d'alerte, sections et formats de sortie.
+- Programmer une diffusion hebdomadaire ou mensuelle indépendante par modèle.
+- Prévisualiser le contenu et les destinataires avant activation.
+- Conserver le résultat de chaque génération et envoi.
+- Empêcher qu'une même exécution adresse deux fois le même rapport au même
+  destinataire.
+
+Critère de fin : plusieurs rapports ciblés peuvent coexister sans modifier le
+rapport hebdomadaire général.
+
+### Phase 35 — API locale et interopérabilité — VALIDÉE, À RÉALISER
+
+- Exposer une API locale en lecture pour les sociétés, alertes, documents,
+  portefeuilles et exécutions.
+- Protéger toute écriture par une authentification locale distincte et
+  désactivée par défaut.
+- Fournir une documentation de l'API et des exemples sans secret.
+- Prévoir des exports JSON stables et versionnés.
+- Limiter l'écoute au poste local tant qu'un mode réseau n'est pas validé.
+
+Critère de fin : un outil local autorisé peut consulter les données sans accès
+direct au fichier SQLite.
+
+### Phase 36 — Accessibilité et finition responsive — VALIDÉE, À RÉALISER
+
+- Auditer toutes les pages au clavier, les libellés, contrastes, messages et
+  relations entre contrôles.
+- Corriger les tableaux, menus, formulaires et chronologies sur mobile,
+  tablette et affichage agrandi.
+- Ajouter des liens d'évitement et une gestion cohérente du focus.
+- Respecter la réduction des animations demandée par le système.
+- Viser les exigences pertinentes du niveau WCAG 2.2 AA.
+
+Critère de fin : les parcours principaux sont utilisables au clavier et aux
+largeurs de référence, sans perte d'information ni d'action.
+
+### Phase 37 — Version stable 1.0 et maintenance — VALIDÉE, À RÉALISER
+
+- Geler le schéma fonctionnel de la version 1.0 et documenter ses migrations.
+- Créer un installateur ou paquet Windows reproductible avec désinstallation
+  et mise à jour préservant les données.
+- Effectuer un test complet sur une installation neuve puis sur une mise à
+  niveau de la base existante.
+- Formaliser la sauvegarde, la restauration, le diagnostic et la procédure de
+  retour à la version précédente.
+- Publier un guide utilisateur, un guide de maintenance et les limites connues.
+
+Critère de fin : la version 1.0 peut être installée, utilisée, mise à jour et
+restaurée sur Windows sans intervention dans le code source.
 
 ## Décisions à prendre au moment approprié
 

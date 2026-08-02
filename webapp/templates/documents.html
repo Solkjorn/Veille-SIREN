@@ -1,5 +1,49 @@
-{% extends "base.html" %}{% block titre %}Documents · Veille-SIREN{% endblock %}{% block contenu %}
-<section class="introduction"><p class="surtitre">Centre documentaire</p><h2>Documents juridiques</h2><p>Actes et comptes INPI disponibles, téléchargés uniquement à votre demande.</p></section>
-<section class="panneau contenu-panneau"><form class="filtres-alertes" method="get"><label>Recherche<input name="q" value="{{ recherche }}" placeholder="SIREN, société ou document"></label><label>Type<select name="type"><option value="">Tous</option><option value="acte" {{ 'selected' if type_selectionne == 'acte' }}>Actes</option><option value="bilan" {{ 'selected' if type_selectionne == 'bilan' }}>Comptes annuels</option><option value="bilan_saisi" {{ 'selected' if type_selectionne == 'bilan_saisi' }}>Comptes structurés</option></select></label><button class="bouton primaire">Rechercher</button></form></section>
-<section class="panneau"><div class="titre-panneau"><h3>Documents disponibles</h3><span>{{ documents|length }} résultat(s)</span></div>{% if documents %}<div class="tableau-defilant"><table><thead><tr><th>Société</th><th>Type</th><th>Document</th><th>Date</th><th>Action</th></tr></thead><tbody>{% for document in documents %}<tr><td><a href="{{ url_for('historique_societe', siren=document.siren) }}"><strong>{{ document.siren }}</strong><br>{{ document.raison_sociale }}</a></td><td>{{ {'acte':'Acte PDF','bilan':'Compte PDF','bilan_saisi':'Données JSON'}[document.type_document] }}</td><td>{{ document.libelle or document.nom_document or 'Document INPI' }}</td><td>{{ document.date_depot or 'Inconnue' }}</td><td><a class="bouton" href="{{ url_for('telecharger_document_inpi', type_document=document.type_document, identifiant=document.identifiant) }}">Télécharger {{ 'JSON' if document.type_document == 'bilan_saisi' else 'PDF' }}</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="etat-vide">Aucun document pour ces critères.</p>{% endif %}</section>
+{% extends "base.html" %}
+{% block titre %}Documents · Veille-SIREN{% endblock %}
+{% block contenu %}
+<section class="introduction">
+  <p class="surtitre">Centre documentaire</p>
+  <h2>Documents juridiques</h2>
+  <p>Consultez les actes et comptes INPI. Les fichiers ne sont téléchargés qu'à votre demande.</p>
+</section>
+
+<section class="panneau recherche-documents">
+  <form method="get">
+    <label><span>Recherche</span><input name="q" value="{{ recherche }}" placeholder="SIREN, société ou intitulé"></label>
+    <label><span>Type de document</span><select name="type"><option value="">Tous les documents</option><option value="acte" {{ 'selected' if type_selectionne == 'acte' }}>Actes PDF</option><option value="bilan" {{ 'selected' if type_selectionne == 'bilan' }}>Comptes annuels PDF</option><option value="bilan_saisi" {{ 'selected' if type_selectionne == 'bilan_saisi' }}>Données de compte JSON</option></select></label>
+    <button class="bouton primaire">Rechercher</button>
+    {% if recherche or type_selectionne %}<a class="bouton lien-bouton" href="{{ url_for('documents') }}">Effacer les filtres</a>{% endif %}
+  </form>
+</section>
+
+<section class="panneau panneau-documents">
+  <div class="titre-panneau">
+    <div><h3>Documents disponibles</h3><p>{{ total }} document{% if total != 1 %}s{% endif %} au total</p></div>
+    {% if nombre_pages > 1 %}<span>Page {{ page }} sur {{ nombre_pages }}</span>{% endif %}
+  </div>
+  {% if documents %}
+  <div class="liste-centre-documents">
+    {% for document in documents %}
+    <article>
+      <span class="icone-document {{ 'json' if document.type_document == 'bilan_saisi' }}">{{ 'JSON' if document.type_document == 'bilan_saisi' else 'PDF' }}</span>
+      <div class="identite-document">
+        <span class="type-document">{{ {'acte':'Acte','bilan':'Compte annuel','bilan_saisi':'Données de compte'}[document.type_document] }}</span>
+        <strong>{{ document.libelle or document.nom_document or 'Document INPI' }}</strong>
+        <p><a href="{{ url_for('historique_societe', siren=document.siren) }}"><span class="siren">{{ document.siren }}</span>{% if document.raison_sociale %} · {{ document.raison_sociale }}{% endif %}</a></p>
+      </div>
+      <dl class="meta-document"><div><dt>Date de dépôt</dt><dd>{{ document.date_depot or 'Inconnue' }}</dd></div><div><dt>Confidentialité</dt><dd>{{ document.confidentialite or 'Non renseignée' }}</dd></div></dl>
+      <a class="bouton lien-bouton action-document" href="{{ url_for('telecharger_document_inpi', type_document=document.type_document, identifiant=document.identifiant) }}">Télécharger {{ 'JSON' if document.type_document == 'bilan_saisi' else 'PDF' }}</a>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<p class="etat-vide">Aucun document ne correspond à ces critères.</p>{% endif %}
+
+  {% if nombre_pages > 1 %}
+  <nav class="pagination" aria-label="Pagination des documents">
+    {% if page > 1 %}<a class="bouton lien-bouton" href="{{ url_for('documents', q=recherche, type=type_selectionne, page=page-1) }}">← Précédente</a>{% endif %}
+    <span>Page {{ page }} sur {{ nombre_pages }}</span>
+    {% if page < nombre_pages %}<a class="bouton lien-bouton" href="{{ url_for('documents', q=recherche, type=type_selectionne, page=page+1) }}">Suivante →</a>{% endif %}
+  </nav>
+  {% endif %}
+</section>
 {% endblock %}

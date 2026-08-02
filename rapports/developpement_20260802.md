@@ -255,6 +255,19 @@ Le test réel renvoie `application/json`, le nom
 `bilan_saisi_304154719.json` et un contenu valide. La suite compte 133 tests
 réussis.
 
+La page Documents a été refondue après contrôle de sa mise en page réelle :
+cartes documentaires alignées, dates non sécables, actions dimensionnées,
+formats PDF/JSON distincts et filtres plus lisibles. Les 272 documents de la
+base locale sont paginés par groupes de 30 sur dix pages. Le rendu a été
+contrôlé à une largeur de 1 289 pixels sans débordement horizontal. La suite
+compte maintenant 134 tests réussis.
+
+La feuille de route détaille désormais les phases 26 à 37 : configuration,
+première utilisation, profils, calendrier, tâches, notes, comparaison de
+documents, règles personnalisées, rapports programmables, API locale,
+accessibilité et version stable 1.0. Chaque phase possède un périmètre et un
+critère de fin explicites. Le fonctionnement gratuit et local reste obligatoire.
+
 La session est clôturée à 20:04. Le suivi atteint environ 14 h 49. La
 sauvegarde GitHub regroupe les travaux validés de la journée, sans base SQLite,
 journal local, rapport de collecte généré ni secret enregistré en clair.

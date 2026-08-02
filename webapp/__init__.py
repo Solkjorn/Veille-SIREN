@@ -36,6 +36,7 @@ from modules.base_donnees import (
     lire_erreurs_taches_entre,
     configurer_destinataire_portefeuille,
     lire_documents_inpi_tous,
+    compter_documents_inpi,
     enregistrer_audit,
     lire_audit,
 )
@@ -793,14 +794,21 @@ def creer_application(configuration: dict | None = None) -> Flask:
     def documents():
         recherche = request.args.get("q", "").strip()
         type_document = request.args.get("type", "").strip()
+        page = max(1, request.args.get("page", 1, type=int) or 1)
+        par_page = 30
         if type_document not in {"", "acte", "bilan", "bilan_saisi"}:
             abort(400)
+        total = compter_documents_inpi(recherche, type_document, chemin_base())
+        nombre_pages = max(1, (total + par_page - 1) // par_page)
+        page = min(page, nombre_pages)
         return render_template(
             "documents.html",
             documents=lire_documents_inpi_tous(
-                recherche, type_document, chemin=chemin_base()
+                recherche, type_document, par_page, chemin_base(),
+                (page - 1) * par_page,
             ),
             recherche=recherche, type_selectionne=type_document,
+            total=total, page=page, nombre_pages=nombre_pages,
         )
 
     @application.get("/recherche")

@@ -26,6 +26,7 @@ et n'inclut pas les interruptions.
 | 7 | 02/08/2026 | 11:31 | 12:54 | ≈ 1 h 23 | Relevée |
 | 8 | 02/08/2026 | 13:26 | 14:06 | ≈ 40 min | Relevée |
 | 9 | 02/08/2026 | ≈ 17:20 | 20:04 | ≈ 2 h 06 | Mixte |
+| 10 | 02/08/2026 | ≈ 21:29 | 21:37 | ≈ 8 min | Mixte |
 
 ## Détail des travaux
 
@@ -122,9 +123,11 @@ et n'inclut pas les interruptions.
 | 02/08/2026 | Pré-0.2 | Validation et inscription des phases 26 à 37 dans la feuille de route | ≈ 2 min | ≈ 14 h 42 |
 | 02/08/2026 | Pré-0.2 | Correction des données de compte INPI : JSON réel, extension correcte et validation des signatures PDF | ≈ 5 min | ≈ 14 h 47 |
 | 02/08/2026 | Pré-0.2 | Clôture de session, contrôles finaux et sauvegarde GitHub | ≈ 2 min | ≈ 14 h 49 |
+| 02/08/2026 | Pré-0.2 | Refonte responsive du centre documentaire et pagination des 272 documents | ≈ 6 min | ≈ 14 h 55 |
+| 02/08/2026 | Pré-0.2 | Détail fonctionnel et critères de fin des phases 26 à 37 | ≈ 2 min | ≈ 14 h 57 |
 
 ## Total par version
 
 | Version | Durée |
 |---|---:|
-| Pré-0.2 | ≈ 14 h 49 |
+| Pré-0.2 | ≈ 14 h 57 |

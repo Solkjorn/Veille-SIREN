@@ -558,6 +558,16 @@ class TestApplicationWeb(unittest.TestCase):
             self.assertEqual(reponse.status_code, 200, route)
             self.assertIn(titre, reponse.get_data(as_text=True))
 
+    @patch("webapp.lire_documents_inpi_tous", return_value=[])
+    @patch("webapp.compter_documents_inpi", return_value=272)
+    def test_documents_sont_pagines_par_trente(
+        self, mock_compter, mock_lire
+    ):
+        page = self.client.get("/documents?page=2").get_data(as_text=True)
+        self.assertIn("272 documents au total", page)
+        self.assertIn("Page 2 sur 10", page)
+        mock_lire.assert_called_once_with("", "", 30, self.base, 30)
+
     def test_configure_le_destinataire_d_un_portefeuille(self):
         from modules.base_donnees import creer_portefeuille, lire_portefeuilles
         identifiant = creer_portefeuille("Clients", chemin=self.base)

@@ -554,7 +554,7 @@ def configurer_destinataire_portefeuille(
 
 def lire_documents_inpi_tous(
     recherche: str = "", type_document: str = "", limite: int = 250,
-    chemin: Path = BASE_SQLITE,
+    chemin: Path = BASE_SQLITE, decalage: int = 0,
 ) -> list[dict]:
     """Recherche les documents INPI de toutes les sociétés."""
     initialiser_base(chemin)
@@ -573,11 +573,35 @@ def lire_documents_inpi_tous(
     where = " WHERE " + " AND ".join(clauses) if clauses else ""
     requete = """SELECT d.*, COALESCE((SELECT c.raison_sociale FROM collectes c
         WHERE c.siren=d.siren ORDER BY c.date_collecte DESC LIMIT 1), '') AS raison_sociale
-        FROM documents_inpi d""" + where + " ORDER BY d.date_depot DESC, d.date_detection DESC LIMIT ?"
-    parametres.append(int(limite))
+        FROM documents_inpi d""" + where + " ORDER BY d.date_depot DESC, d.date_detection DESC LIMIT ? OFFSET ?"
+    parametres.extend((int(limite), max(0, int(decalage))))
     with closing(sqlite3.connect(chemin)) as connexion:
         connexion.row_factory = sqlite3.Row
         return [dict(x) for x in connexion.execute(requete, parametres).fetchall()]
+
+
+def compter_documents_inpi(
+    recherche: str = "", type_document: str = "", chemin: Path = BASE_SQLITE,
+) -> int:
+    """Compte les documents correspondant aux filtres du centre documentaire."""
+    initialiser_base(chemin)
+    clauses, parametres = [], []
+    if recherche:
+        clauses.append(
+            "(d.siren LIKE ? OR d.libelle LIKE ? OR d.nom_document LIKE ? "
+            "OR EXISTS(SELECT 1 FROM collectes c WHERE c.siren=d.siren "
+            "AND c.raison_sociale LIKE ?))"
+        )
+        motif = f"%{recherche.strip()}%"
+        parametres.extend([motif] * 4)
+    if type_document:
+        clauses.append("d.type_document = ?")
+        parametres.append(type_document)
+    where = " WHERE " + " AND ".join(clauses) if clauses else ""
+    with closing(sqlite3.connect(chemin)) as connexion:
+        return int(connexion.execute(
+            "SELECT COUNT(*) FROM documents_inpi d" + where, parametres
+        ).fetchone()[0])
 
 
 def enregistrer_audit(
