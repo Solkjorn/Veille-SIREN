@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+import re
+import unicodedata
 
 from modules.modele import Societe
 
@@ -92,6 +94,76 @@ def completer_champs_absents(
     return nouvelle
 
 
+def _texte_sans_variantes(valeur: str) -> str:
+    """Neutralise casse, accents et ponctuation sans modifier la valeur affichée."""
+    valeur = unicodedata.normalize("NFKD", str(valeur or "").casefold())
+    valeur = "".join(caractere for caractere in valeur if not unicodedata.combining(caractere))
+    return " ".join(re.findall(r"[a-z0-9]+", valeur))
+
+
+def _normaliser_dirigeants(valeur: str) -> tuple[tuple[frozenset[str], str], ...]:
+    """Compare une liste de dirigeants sans dépendre de l'ordre ni de Nom/Prénom."""
+    dirigeants = []
+    for element in re.split(r"\s*;\s*", str(valeur or "")):
+        element = element.strip()
+        if not element:
+            continue
+        correspondance = re.match(r"^(.*?)\s*\(([^()]*)\)\s*$", element)
+        nom = _texte_sans_variantes(correspondance.group(1) if correspondance else element)
+        qualite = _texte_sans_variantes(
+            correspondance.group(2) if correspondance and correspondance.group(2) else ""
+        )
+        dirigeants.append((frozenset(nom.split()), qualite))
+    return tuple(dirigeants)
+
+
+def _dirigeants_equivalents(ancienne: str, nouvelle: str) -> bool:
+    """Tolère les prénoms secondaires et les qualités plus ou moins détaillées."""
+    restants = list(_normaliser_dirigeants(nouvelle))
+    anciens = _normaliser_dirigeants(ancienne)
+    if len(anciens) != len(restants):
+        return False
+    for ancien_nom, ancienne_qualite in anciens:
+        for index, (nouveau_nom, nouvelle_qualite) in enumerate(restants):
+            meme_identite = (
+                ancien_nom.issubset(nouveau_nom) or nouveau_nom.issubset(ancien_nom)
+            )
+            meme_qualite = (
+                not ancienne_qualite
+                or not nouvelle_qualite
+                or ancienne_qualite == nouvelle_qualite
+                or ancienne_qualite in nouvelle_qualite
+                or nouvelle_qualite in ancienne_qualite
+            )
+            if meme_identite and meme_qualite:
+                restants.pop(index)
+                break
+        else:
+            return False
+    return True
+
+
+def _valeur_comparable(champ: str, valeur: str):
+    if champ in {"adresse", "forme_juridique"}:
+        return _texte_sans_variantes(valeur)
+    return str(valeur or "").strip()
+
+
+def _raison_individuelle_equivalente(ancienne: Societe, nouvelle: Societe) -> bool:
+    formes = {
+        _texte_sans_variantes(ancienne.forme_juridique),
+        _texte_sans_variantes(nouvelle.forme_juridique),
+    }
+    if not any(forme == "1000" or "entrepreneur individuel" in forme for forme in formes):
+        return False
+    ancien_nom = frozenset(_texte_sans_variantes(ancienne.raison_sociale).split())
+    nouveau_nom = frozenset(_texte_sans_variantes(nouvelle.raison_sociale).split())
+    return bool(
+        ancien_nom and nouveau_nom
+        and (ancien_nom.issubset(nouveau_nom) or nouveau_nom.issubset(ancien_nom))
+    )
+
+
 def detecter_changements(
     ancienne: Societe | None,
     nouvelle: Societe,
@@ -111,7 +183,19 @@ def detecter_changements(
         ancienne_valeur = getattr(ancienne, champ)
         nouvelle_valeur = getattr(nouvelle, champ)
 
-        if ancienne_valeur != nouvelle_valeur:
+        valeurs_equivalentes = (
+            _dirigeants_equivalents(ancienne_valeur, nouvelle_valeur)
+            if champ == "dirigeant"
+            else (
+                _valeur_comparable(champ, ancienne_valeur)
+                == _valeur_comparable(champ, nouvelle_valeur)
+                or _raison_individuelle_equivalente(ancienne, nouvelle)
+            )
+            if champ == "raison_sociale"
+            else _valeur_comparable(champ, ancienne_valeur)
+            == _valeur_comparable(champ, nouvelle_valeur)
+        )
+        if not valeurs_equivalentes:
             niveau, categorie, regle = classer_changement(
                 champ, ancienne_valeur, nouvelle_valeur
             )

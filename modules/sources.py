@@ -2,7 +2,7 @@ import json
 import os
 import re
 import time
-from datetime import date, datetime
+from datetime import datetime
 from urllib.parse import quote, urlencode
 
 from playwright.sync_api import Page
@@ -25,6 +25,73 @@ class SourcePappers:
         if page is None:
             raise RuntimeError("Pappers nécessite une page de navigateur.")
         return lire_pappers_avec_page(siren, page)
+
+
+class SourceAnnuaireEntreprises:
+    """Consulte l'API publique qui alimente l'Annuaire des entreprises."""
+
+    nom = "Annuaire des entreprises"
+    necessite_navigateur = False
+    url = "https://recherche-entreprises.api.gouv.fr/search"
+
+    @staticmethod
+    def _lire_dirigeants(donnees: dict) -> str:
+        dirigeants = []
+        for dirigeant in donnees.get("dirigeants", []) or []:
+            nom = " ".join(
+                valeur.strip()
+                for valeur in (
+                    str(dirigeant.get("prenoms") or ""),
+                    str(
+                        dirigeant.get("nom")
+                        or dirigeant.get("denomination")
+                        or dirigeant.get("nom_complet")
+                        or ""
+                    ),
+                )
+                if valeur.strip()
+            )
+            qualite = str(dirigeant.get("qualite") or "").strip()
+            if nom and qualite:
+                dirigeants.append(f"{nom} ({qualite})")
+            elif nom:
+                dirigeants.append(nom)
+        return " ; ".join(dirigeants)
+
+    def collecter(self, siren: str, page: Page | None = None) -> Societe:
+        parametres = urlencode({"q": siren, "per_page": 1})
+        donnees = requete_json(
+            f"{self.url}?{parametres}",
+            {"User-Agent": "Veille-SIREN/0.2 (veille juridique locale)"},
+        )
+        resultats = donnees.get("results", []) or []
+        entreprise = next(
+            (
+                resultat for resultat in resultats
+                if str(resultat.get("siren") or "") == siren
+            ),
+            {},
+        )
+        siege = entreprise.get("siege") or {}
+        statut = {
+            "A": "Active",
+            "C": "Cessée",
+        }.get(str(entreprise.get("etat_administratif") or ""), "")
+        return Societe(
+            siren=siren,
+            raison_sociale=str(
+                entreprise.get("nom_complet")
+                if str(entreprise.get("nature_juridique") or "").startswith("1")
+                else entreprise.get("nom_raison_sociale")
+                or entreprise.get("nom_complet")
+                or ""
+            ),
+            forme_juridique=str(entreprise.get("nature_juridique") or ""),
+            statut=statut,
+            adresse=str(siege.get("adresse") or ""),
+            dirigeant=self._lire_dirigeants(entreprise),
+            source=self.nom,
+        )
 
 
 class SourceINSEE:
@@ -52,11 +119,17 @@ class SourceINSEE:
         periode = periodes[0]
         denomination = periode.get("denominationUniteLegale", "")
         if not denomination:
+            nom = (
+                periode.get("nomUniteLegale", "")
+                or unite.get("nomUniteLegale", "")
+            )
+            prenom = (
+                unite.get("prenomUsuelUniteLegale", "")
+                or unite.get("prenom1UniteLegale", "")
+                or periode.get("prenomUsuelUniteLegale", "")
+            )
             denomination = " ".join(
-                valeur for valeur in (
-                    unite.get("prenomUsuelUniteLegale", ""),
-                    unite.get("nomUniteLegale", ""),
-                ) if valeur
+                valeur for valeur in (prenom, nom) if valeur
             )
         statut = {
             "A": "Active",
@@ -111,6 +184,10 @@ class SourceINPI:
         if not self._jeton:
             raise ErreurAPI("L'authentification INPI n'a renvoyé aucun jeton.")
         return self._jeton
+
+    def verifier_connexion(self) -> bool:
+        """Vérifie les identifiants sans collecter ni enregistrer de société."""
+        return bool(self._authentifier())
 
     def collecter(self, siren: str, page: Page | None = None) -> Societe:
         jeton = self._jeton or self._authentifier()
@@ -227,14 +304,27 @@ class ErreurCollecteMultisource(RuntimeError):
 
 
 PRIORITES_CHAMPS = {
-    "raison_sociale": ("INSEE", "INPI", "BODACC", "Pappers"),
-    "forme_juridique": ("Pappers", "INPI", "INSEE"),
+    "raison_sociale": (
+        "INSEE", "Annuaire des entreprises", "INPI", "BODACC", "Pappers",
+    ),
+    "forme_juridique": (
+        "Pappers", "INPI", "Annuaire des entreprises", "INSEE",
+    ),
     "capital": ("Pappers",),
-    "statut": ("INSEE", "Pappers"),
-    "adresse": ("Pappers", "INPI"),
-    "dirigeant": ("INPI", "Pappers"),
+    "statut": ("INSEE", "Annuaire des entreprises", "Pappers"),
+    "adresse": ("Annuaire des entreprises", "Pappers", "INPI"),
+    "dirigeant": ("INPI", "Annuaire des entreprises", "Pappers"),
     "derniere_publication_bodacc": ("BODACC", "Pappers"),
     "dernier_changement": ("BODACC", "Pappers"),
+}
+
+
+# Deux catégories rencontrées sans libellé historique dans la base locale.
+# Les autres codes numériques sont volontairement ignorés par la fusion afin
+# de préserver un éventuel libellé textuel déjà collecté.
+LIBELLES_CATEGORIES_JURIDIQUES = {
+    "6599": "Autre société civile",
+    "8420": "Syndicat patronal",
 }
 
 
@@ -281,8 +371,6 @@ class SourceMultisource:
     def __init__(
         self,
         sources=None,
-        forcer_pappers: bool | None = None,
-        date_reference: date | None = None,
         tentatives_sources: int = 3,
         delai_initial: float = 1.0,
         pause=time.sleep,
@@ -290,14 +378,9 @@ class SourceMultisource:
         if tentatives_sources < 1 or delai_initial < 0:
             raise ValueError("La politique de reprise multisource est invalide.")
         self.sources = sources or [
-            SourceINSEE(), SourceINPI(), SourceBODACC(), SourcePappers(),
+            SourceAnnuaireEntreprises(), SourceINSEE(), SourceINPI(),
+            SourceBODACC(),
         ]
-        date_reference = date_reference or date.today()
-        self.forcer_pappers = (
-            date_reference.day <= 7
-            if forcer_pappers is None
-            else bool(forcer_pappers)
-        )
         self.tentatives_sources = tentatives_sources
         self.delai_initial = delai_initial
         self.pause = pause
@@ -327,33 +410,11 @@ class SourceMultisource:
     def collecter(self, siren: str, page: Page | None = None) -> Societe:
         collectes = {}
         self.erreurs_sources = {}
-        sources_officielles = [
-            source for source in self.sources if source.nom != "Pappers"
-        ]
-        sources_pappers = [
-            source for source in self.sources if source.nom == "Pappers"
-        ]
-        for source in sources_officielles:
+        for source in self.sources:
             try:
                 collectes[source.nom] = self._collecter_source(source, siren, page)
             except Exception as erreur:
                 self.erreurs_sources[source.nom] = str(erreur)
-        champs_disponibles = {
-            champ
-            for societe in collectes.values()
-            for champ in self.CHAMPS_ESSENTIELS
-            if str(getattr(societe, champ, "") or "").strip()
-        }
-        pappers_requis = (
-            self.forcer_pappers
-            or not set(self.CHAMPS_ESSENTIELS).issubset(champs_disponibles)
-        )
-        if pappers_requis:
-            for source in sources_pappers:
-                try:
-                    collectes[source.nom] = self._collecter_source(source, siren, page)
-                except Exception as erreur:
-                    self.erreurs_sources[source.nom] = str(erreur)
         if not collectes:
             details = "; ".join(
                 f"{source}: {erreur}"
@@ -372,9 +433,29 @@ class SourceMultisource:
                 for nom, societe in collectes.items()
                 if str(getattr(societe, champ, "") or "").strip()
             }
+            if champ == "forme_juridique":
+                # L'Annuaire et Sirene exposent une catégorie juridique
+                # numérique. Ce code reste utile à la contradiction, mais ne
+                # doit jamais remplacer un libellé lisible dans l'interface.
+                valeurs_lisibles = {
+                    nom: valeur for nom, valeur in valeurs.items()
+                    if not valeur.isdigit()
+                }
+                if not valeurs_lisibles:
+                    code = next(
+                        (valeur for valeur in valeurs.values() if valeur.isdigit()),
+                        "",
+                    )
+                    if code in LIBELLES_CATEGORIES_JURIDIQUES:
+                        valeurs_lisibles["Nomenclature INSEE"] = (
+                            LIBELLES_CATEGORIES_JURIDIQUES[code]
+                        )
+                        priorites = ("Nomenclature INSEE", *priorites)
+            else:
+                valeurs_lisibles = valeurs
             for nom in priorites:
-                if nom in valeurs:
-                    setattr(resultat, champ, valeurs[nom])
+                if nom in valeurs_lisibles:
+                    setattr(resultat, champ, valeurs_lisibles[nom])
                     self.provenance[champ] = nom
                     break
             if _valeurs_contradictoires(champ, valeurs):
@@ -394,6 +475,7 @@ class SourceMultisource:
 
 
 SOURCES_DISPONIBLES = {
+    "annuaire": SourceAnnuaireEntreprises,
     "pappers": SourcePappers,
     "insee": SourceINSEE,
     "inpi": SourceINPI,

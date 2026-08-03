@@ -5,15 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block titre %}Veille-SIREN{% endblock %}</title>
     <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
+          href="{{ url_for('static', filename='style.css', v='1.0.0') }}">
   </head>
   <body>
+    <a class="lien-evitement" href="#contenu-principal">Aller au contenu principal</a>
     <header class="entete">
       <div>
         <p class="surtitre">Veille juridique</p>
         <h1>Veille-SIREN</h1>
       </div>
-      <span class="phase">Phases 18–25 · Consolidation</span>
+      <span class="phase">Version 1.0 · Espace juridique</span>
     </header>
     <nav class="navigation-principale" aria-label="Navigation principale">
       <a class="{{ 'active' if request.endpoint == 'tableau_de_bord' }}" href="{{ url_for('tableau_de_bord') }}">Tableau de bord</a>
@@ -25,13 +26,25 @@
       <a class="{{ 'active' if request.endpoint == 'erreurs' }}" href="{{ url_for('erreurs') }}">Erreurs</a>
       <a class="{{ 'active' if request.endpoint == 'portefeuilles' }}" href="{{ url_for('portefeuilles') }}">Portefeuilles</a>
       <a class="{{ 'active' if request.endpoint == 'recherche_globale' }}" href="{{ url_for('recherche_globale') }}">Recherche</a>
+      <details class="menu-navigation"><summary>Travail{% if nombre_taches_ouvertes %} ({{ nombre_taches_ouvertes }}){% endif %}</summary><div>
+        <a href="{{ url_for('calendrier') }}">Calendrier</a><a href="{{ url_for('taches') }}">Tâches</a>
+        <a href="{{ url_for('notes') }}">Notes</a><a href="{{ url_for('profils_surveillance') }}">Profils</a>
+      </div></details>
       <details class="menu-navigation"><summary>Gestion</summary><div>
+        <a href="{{ url_for('configuration_centrale') }}">Configuration</a>
+        <a href="{{ url_for('assistant_demarrage') }}">Assistant</a>
+        <a href="{{ url_for('regles_personnalisees') }}">Règles</a>
+        <a href="{{ url_for('modeles_rapports') }}">Rapports programmés</a>
+        <a href="{{ url_for('documentation_api') }}">API locale</a>
         <a href="{{ url_for('journal') }}">Journal</a><a href="{{ url_for('rapports') }}">Rapports</a>
         <a href="{{ url_for('sauvegardes') }}">Sauvegardes</a><a href="{{ url_for('audit') }}">Audit</a>
         <a href="{{ url_for('diagnostic') }}">Diagnostic</a>
       </div></details>
     </nav>
-    <main class="contenu">
+    <main class="contenu" id="contenu-principal" tabindex="-1">
+      {% if progression_demarrage.base_neuve and not progression_demarrage.termine and request.endpoint != 'assistant_demarrage' %}
+        <aside class="message information">Première utilisation : <a href="{{ url_for('assistant_demarrage') }}">ouvrir l'assistant guidé</a>. Vous pouvez continuer à utiliser l'application normalement.</aside>
+      {% endif %}
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           <section class="messages" aria-label="Messages">
@@ -43,6 +56,6 @@
       {% endwith %}
       {% block contenu %}{% endblock %}
     </main>
-    <script src="{{ url_for('static', filename='interface.js') }}"></script>
+    <script src="{{ url_for('static', filename='interface.js', v='1.0.0') }}"></script>
   </body>
 </html>

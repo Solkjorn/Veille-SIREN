@@ -1,4 +1,5 @@
 import smtplib
+from datetime import date
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -7,6 +8,24 @@ from modules.secrets_windows import lire_configuration_smtp
 
 class ErreurCourriel(RuntimeError):
     """Erreur lisible d'envoi de la synthèse."""
+
+
+def verifier_connexion_smtp(
+    configuration: dict | None = None, client=smtplib.SMTP
+) -> bool:
+    """Teste TLS et l'authentification sans envoyer de message."""
+    configuration = configuration or lire_configuration_smtp()
+    if not configuration:
+        raise ErreurCourriel("Aucune configuration SMTP n'est enregistrée.")
+    try:
+        with client(
+            configuration["hote"], int(configuration["port"]), timeout=30
+        ) as smtp:
+            smtp.starttls()
+            smtp.login(configuration["utilisateur"], configuration["mot_de_passe"])
+    except (OSError, smtplib.SMTPException, ValueError, KeyError) as erreur:
+        raise ErreurCourriel(f"Échec de la connexion SMTP : {erreur}") from erreur
+    return True
 
 
 def _envoyer_message(message, configuration: dict, client) -> None:
@@ -24,7 +43,8 @@ def envoyer_synthese(
     configuration: dict | None = None,
     client=smtplib.SMTP,
     destinataire: str | None = None,
-    objet: str = "Synthèse hebdomadaire Veille-SIREN",
+    objet: str | None = None,
+    date_reference: date | None = None,
 ) -> None:
     """Envoie la synthèse HTML au destinataire SMTP configuré."""
     if configuration is None:
@@ -34,7 +54,10 @@ def envoyer_synthese(
     chemin_rapport = Path(chemin_rapport)
     contenu = chemin_rapport.read_text(encoding="utf-8")
     message = EmailMessage()
-    message["Subject"] = objet
+    message["Subject"] = objet or (
+        "Synthèse hebdomadaire Veille-SIREN — "
+        f"{(date_reference or date.today()).strftime('%d/%m/%Y')}"
+    )
     message["From"] = configuration["expediteur"]
     message["To"] = destinataire or configuration["destinataire"]
     message.set_content(

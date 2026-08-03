@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block titre %}Calendrier · Veille-SIREN{% endblock %}
+{% block contenu %}
+<section class="introduction">
+  <p class="surtitre">Phase 29</p>
+  <h2>Calendrier juridique</h2>
+  <p>Les dates officielles observées et les échéances internes restent clairement distinguées.</p>
+</section>
+<section class="panneau">
+  <div class="titre-panneau"><h3>Échéances internes et rappels</h3><a class="bouton lien-bouton" href="{{ url_for('exporter_calendrier') }}">Exporter .ics</a></div>
+  {% if echeances %}<div class="liste-echeances">{% for e in echeances %}<article><time datetime="{{ e.date_echeance }}">{{ e.date_echeance }}</time><div><strong>{{ e.libelle }}</strong><p>{{ e.raison_sociale or e.siren or 'Échéance générale' }}</p><small>{{ 'Date officielle' if e.officielle else 'Date interne ou estimée' }} · {{ e.origine }}{% if e.responsable %} · {{ e.responsable }}{% endif %}</small></div></article>{% endfor %}</div>{% else %}<p class="etat-vide">Aucune échéance interne.</p>{% endif %}
+</section>
+<section class="panneau">
+  <div class="titre-panneau"><h3>Dates officielles observées</h3><span>{{ dates_officielles|length }} date(s)</span></div>
+  <p class="aide">Ces dates proviennent des métadonnées INPI. Elles décrivent un dépôt passé et ne constituent pas une échéance estimée.</p>
+  {% if dates_officielles %}<div class="liste-echeances">{% for e in dates_officielles %}<article><time datetime="{{ e.date_echeance }}">{{ e.date_echeance }}</time><div><strong>{{ e.libelle }}</strong><p>{{ e.raison_sociale or e.siren }}</p><small>Date officielle observée · {{ e.origine }}</small></div></article>{% endfor %}</div>{% else %}<p class="etat-vide">Aucune date officielle disponible.</p>{% endif %}
+</section>
+<section class="panneau formulaire-section"><h3>Ajouter une échéance interne</h3><form method="post" class="grille-formulaire"><input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}"><label>Libellé<input name="libelle" required></label><label>Date<input type="date" name="date_echeance" required></label><label>SIREN<input name="siren" inputmode="numeric"></label><label>Responsable<input name="responsable"></label><label>Rappel avant (jours)<input type="number" min="0" name="rappel_jours" value="7"></label><label class="large">Commentaire<textarea name="commentaire"></textarea></label><button>Ajouter</button></form></section>
+{% endblock %}

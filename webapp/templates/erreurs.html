@@ -48,6 +48,7 @@
                 <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
                 <button class="bouton primaire">Relancer</button>
               </form>
+              <form method="post" action="{{ url_for('taches') }}"><input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}"><input type="hidden" name="siren" value="{{ entreprise.siren }}"><input type="hidden" name="origine_type" value="erreur"><input type="hidden" name="origine_id" value="{{ e.id }}"><input type="hidden" name="titre" value="Résoudre l'erreur de collecte {{ entreprise.siren }}"><input type="hidden" name="priorite" value="haute"><button class="bouton">Créer une tâche</button></form>
             </td>
           </tr>
           {% endfor %}

@@ -38,11 +38,39 @@
     </div>
   </section>
 
+  <section class="panneau espace-travail-societe">
+    <div class="titre-panneau"><div><p class="surtitre">Organisation interne</p><h3>Suivi de la société</h3></div></div>
+    <div class="grille-outils-societe">
+      <form method="post" action="{{ url_for('modifier_profil_societe', siren=surveillance.siren) }}">
+        <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+        <h4>Profil de surveillance</h4>
+        <label>Profil<select name="profil">{% for profil in profils %}<option value="{{ profil.code }}" {{ 'selected' if profil_societe and profil_societe.code == profil.code }}>{{ profil.nom }}</option>{% endfor %}</select></label>
+        <p class="aide">{{ profil_societe.description if profil_societe else 'Aucun profil explicite : préférences individuelles conservées.' }}</p>
+        <button type="submit">Appliquer</button>
+      </form>
+      <form method="post" action="{{ url_for('taches') }}">
+        <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}"><input type="hidden" name="siren" value="{{ surveillance.siren }}"><input type="hidden" name="retour_siren" value="{{ surveillance.siren }}">
+        <h4>Nouvelle tâche</h4><label>Titre<input name="titre" required></label><label>Priorité<select name="priorite"><option>normale</option><option>haute</option><option>critique</option><option>basse</option></select></label><label>Échéance<input type="date" name="date_echeance"></label><button type="submit">Créer la tâche</button>
+      </form>
+      <form method="post" action="{{ url_for('notes') }}">
+        <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}"><input type="hidden" name="siren" value="{{ surveillance.siren }}"><input type="hidden" name="retour_siren" value="{{ surveillance.siren }}">
+        <h4>Nouvelle note</h4><label>Contenu<textarea name="contenu" required></textarea></label><label><input type="checkbox" name="epinglee" value="1"> Épingler</label><button type="submit">Ajouter la note</button>
+      </form>
+      <form method="post" action="{{ url_for('lier_societe', siren=surveillance.siren) }}">
+        <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}"><h4>Lier une société</h4><label>SIREN lié<input name="siren_cible" inputmode="numeric" pattern="[0-9]{9}" required></label><label>Relation<input name="libelle" placeholder="Filiale, cliente…"></label><button type="submit">Créer le lien</button>
+      </form>
+    </div>
+    {% if taches_societe %}<h4>Tâches</h4><div class="liste-compacte">{% for tache in taches_societe %}<article><strong>{{ tache.titre }}</strong><span>{{ tache.statut|replace('_',' ') }} · {{ tache.priorite }}</span>{% if tache.statut != 'terminee' %}<form method="post" action="{{ url_for('modifier_statut_tache', identifiant=tache.id) }}"><input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}"><input type="hidden" name="retour_siren" value="{{ surveillance.siren }}"><input type="hidden" name="statut" value="terminee"><button class="bouton" type="submit">Terminer</button></form>{% endif %}</article>{% endfor %}</div>{% endif %}
+    {% if notes_societe %}<h4>Notes internes</h4><div class="liste-compacte">{% for note in notes_societe %}<article><strong>{{ 'Épinglée · ' if note.epinglee }}{{ note.date_creation|replace('T',' ') }}</strong><span>{{ note.contenu }}</span></article>{% endfor %}</div>{% endif %}
+    {% if liens_societe %}<h4>Sociétés liées</h4><ul>{% for lien in liens_societe %}<li><a href="{{ url_for('historique_societe', siren=lien.siren_cible if lien.siren_source == surveillance.siren else lien.siren_source) }}">{{ lien.siren_cible if lien.siren_source == surveillance.siren else lien.siren_source }}</a> · {{ lien.libelle or 'Lien interne' }}</li>{% endfor %}</ul>{% endif %}
+  </section>
+
   <section class="panneau documents-inpi">
     <div class="titre-panneau">
       <div><p class="surtitre">Documents officiels</p><h3>Actes et comptes INPI</h3></div>
       <span>{{ documents_inpi|length }} document(s)</span>
     </div>
+    {% if documents_inpi|length >= 2 %}<p><a class="bouton lien-bouton" href="{{ url_for('comparer_documents', siren=surveillance.siren) }}">Comparer deux documents</a></p>{% endif %}
     {% if documents_inpi %}
       <div class="liste-documents">
         {% for document in documents_inpi %}
@@ -54,6 +82,7 @@
               <small>Déposé le {{ document.date_depot or "date inconnue" }} · {{ document.confidentialite or "Confidentialité non renseignée" }}</small>
             </div>
             <a class="bouton lien-bouton" href="{{ url_for('telecharger_document_inpi', type_document=document.type_document, identifiant=document.identifiant) }}">Télécharger {{ 'le JSON' if document.type_document == 'bilan_saisi' else 'le PDF' }}</a>
+            <form method="post" action="{{ url_for('taches') }}"><input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}"><input type="hidden" name="siren" value="{{ surveillance.siren }}"><input type="hidden" name="retour_siren" value="{{ surveillance.siren }}"><input type="hidden" name="origine_type" value="document"><input type="hidden" name="origine_id" value="{{ document.identifiant }}"><input type="hidden" name="titre" value="Examiner : {{ document.libelle or document.nom_document or 'document INPI' }}"><button class="bouton" type="submit">Créer une tâche</button></form>
           </article>
         {% endfor %}
       </div>
@@ -101,6 +130,20 @@
             <p><strong>{{ alerte.regle }}</strong></p>
             <p>{{ alerte.ancienne_valeur or "Non renseigné" }} → {{ alerte.nouvelle_valeur or "Non renseigné" }}</p>
             <small>{{ alerte.categorie|replace('_', ' ')|capitalize }} · Source : {{ alerte.source or "Non renseignée" }}</small>
+            <form class="gestion-alerte-fiche" method="post" action="{{ url_for('modifier_statut_alerte', identifiant=alerte.identifiant) }}">
+              <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+              <input type="hidden" name="retour" value="fiche">
+              <input type="hidden" name="siren" value="{{ surveillance.siren }}">
+              <label>État
+                <select name="statut">
+                  {% for valeur, libelle in (('nouvelle', 'Nouvelle'), ('lue', 'Lue'), ('traitee', 'Traitée')) %}
+                    <option value="{{ valeur }}" {{ 'selected' if alerte.statut == valeur }}>{{ libelle }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <button class="bouton" type="submit">Mettre à jour</button>
+            </form>
+            <form class="gestion-alerte-fiche" method="post" action="{{ url_for('taches') }}"><input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}"><input type="hidden" name="siren" value="{{ surveillance.siren }}"><input type="hidden" name="retour_siren" value="{{ surveillance.siren }}"><input type="hidden" name="origine_type" value="alerte"><input type="hidden" name="origine_id" value="{{ alerte.identifiant }}"><input type="hidden" name="titre" value="Traiter : {{ alerte.regle }}"><input type="hidden" name="priorite" value="{{ 'critique' if alerte.niveau == 'critique' else 'haute' }}"><button class="bouton" type="submit">Créer une tâche</button></form>
           </article>
         {% else %}
         {% set collecte = entree.collecte %}

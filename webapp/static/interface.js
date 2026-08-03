@@ -14,3 +14,11 @@ document.querySelectorAll("form[data-confirmation]").forEach((formulaire) => {
     }
   });
 });
+
+const lienEvitement = document.querySelector('.lien-evitement');
+const contenuPrincipal = document.getElementById('contenu-principal');
+if (lienEvitement && contenuPrincipal) {
+  lienEvitement.addEventListener('click', () => {
+    contenuPrincipal.focus();
+  });
+}

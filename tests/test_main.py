@@ -31,7 +31,7 @@ class TestMain(unittest.TestCase):
             12, "succes", societes=4, modifications=1, erreurs=0,
             rapport="synthese.html",
         )
-        mock_sauvegarde.assert_called_once_with()
+        mock_sauvegarde.assert_called_once_with(conserver=12)
         self.assertEqual(resultat, "synthese.html")
 
     @patch("main.publier_rapport_veille", return_value=None)

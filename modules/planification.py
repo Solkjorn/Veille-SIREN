@@ -38,7 +38,7 @@ def prochaine_limite(
 def construire_xml_tache(
     python: Path,
     projet: Path,
-    source: str = "pappers",
+    source: str = "multisource",
     utilisateur: str | None = None,
     jour_semaine: int = 0,
     heure: int = 7,
@@ -72,7 +72,7 @@ def construire_xml_tache(
 def installer_tache(
     python: Path = Path(sys.executable),
     projet: Path = Path(__file__).resolve().parents[1],
-    source: str = "pappers",
+    source: str = "multisource",
     jour_semaine: int = 0,
     heure: int = 7,
     minute: int = 0,
@@ -134,7 +134,7 @@ def lancer_tache() -> None:
 def main() -> int:
     analyseur = argparse.ArgumentParser()
     analyseur.add_argument("--installer", action="store_true")
-    analyseur.add_argument("--source", default="pappers")
+    analyseur.add_argument("--source", default="multisource")
     analyseur.add_argument("--jour", type=int, choices=range(7), default=0)
     analyseur.add_argument("--heure", type=int, choices=range(24), default=7)
     analyseur.add_argument("--minute", type=int, choices=range(60), default=0)

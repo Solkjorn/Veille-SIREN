@@ -7,7 +7,9 @@ from modules.base_donnees import (
     enregistrer_societe,
     initialiser_base,
     lire_derniere_collecte,
+    lire_derniere_forme_juridique_lisible,
     lire_portefeuilles,
+    lire_reglages_conservation,
     lire_societes_portefeuille,
     enregistrer_envoi_portefeuille,
     terminer_execution_veille,
@@ -15,6 +17,10 @@ from modules.base_donnees import (
 from modules.collecteur import CollecteurSocietes
 from modules.comparaison import (
     Changement, completer_champs_absents, detecter_changements,
+)
+from modules.espace_travail import (
+    enregistrer_generation, evaluer_regle, generation_deja_enregistree,
+    lire_modeles_rapports, lire_regles,
 )
 from modules.courriel import ErreurCourriel, envoyer_alerte_critique, envoyer_synthese
 from modules.initialisation import creer_dossiers
@@ -76,7 +82,7 @@ def afficher_changements(changements: list[Changement]) -> None:
         print(f"{changement.libelle} : {ancienne} -> {nouvelle}")
 
 
-def executer(sans_interface: bool = False, source: str = "pappers", sirens=None):
+def executer(sans_interface: bool = False, source: str = "multisource", sirens=None):
     """
     Lance la veille pour toutes les sociétés actives et valides du fichier.
     """
@@ -136,11 +142,33 @@ def executer(sans_interface: bool = False, source: str = "pappers", sirens=None)
 
             logger.info("Collecte du SIREN %s terminée avec succès", siren)
             ancienne_collecte = lire_derniere_collecte(siren)
+            if (
+                ancienne_collecte
+                and str(ancienne_collecte.forme_juridique or "").strip().isdigit()
+            ):
+                ancienne_collecte.forme_juridique = (
+                    lire_derniere_forme_juridique_lisible(siren)
+                )
             completer_champs_absents(ancienne_collecte, societe_collectee)
             changements = detecter_changements(
                 ancienne_collecte,
                 societe_collectee,
             )
+            for regle in lire_regles():
+                if not regle["active"] or not evaluer_regle(
+                    regle, ancienne_collecte, societe_collectee
+                ):
+                    continue
+                champ = regle["champ"]
+                changements.append(Changement(
+                    champ=champ,
+                    libelle=regle["libelle"],
+                    ancienne_valeur=str(getattr(ancienne_collecte, champ, "") or ""),
+                    nouvelle_valeur=str(getattr(societe_collectee, champ, "") or ""),
+                    niveau=regle["niveau"],
+                    categorie="autre",
+                    regle=f"{regle['libelle']} [règle #{regle['id']} v{regle['version']}]",
+                ))
             enregistrer_societe(societe_collectee)
             for changement in changements:
                 ajoutee = enregistrer_alertes(
@@ -196,7 +224,7 @@ def executer(sans_interface: bool = False, source: str = "pappers", sirens=None)
 
 
 def executer_hebdomadaire(
-    sans_interface: bool = True, source: str = "pappers"
+    sans_interface: bool = True, source: str = "multisource"
 ):
     """Exécute la collecte puis la synthèse, strictement dans cet ordre."""
     logger.info("Démarrage de l'exécution hebdomadaire")
@@ -252,6 +280,49 @@ def executer_hebdomadaire(
             enregistrer_envoi_portefeuille(
                 portefeuille["id"], destinataire, "succes"
             )
+    for modele in lire_modeles_rapports():
+        if not modele["actif"]:
+            continue
+        if modele["cadence"] == "mensuelle" and datetime.now().day > 7:
+            continue
+        maintenant = datetime.now()
+        destinataire_modele = modele["destinataire"].strip()
+        if generation_deja_enregistree(
+            modele["id"], destinataire_modele, maintenant
+        ):
+            continue
+        nom_fichier = (
+            f"rapport_programme_{modele['id']}_"
+            f"{maintenant.strftime('%Y%m%d')}.html"
+        )
+        chemin_modele = DOSSIER_RAPPORTS / nom_fichier
+        contenu = (
+            "<!doctype html><html lang='fr'><meta charset='utf-8'>"
+            f"<title>{escape(modele['nom'])}</title><h1>{escape(modele['nom'])}</h1>"
+            f"<p>Généré le {maintenant.strftime('%d/%m/%Y à %H:%M')}.</p>"
+            f"<p>Portefeuille : {escape(modele['portefeuille'])}</p>"
+            f"<p>Période : {escape(modele['periode'])} jours · "
+            f"Niveaux : {escape(modele['niveaux'])}</p>"
+            f"<p>Sections : {escape(modele['sections'])}</p>"
+            "<p>Prévisualisation structurée ; les données détaillées restent "
+            "disponibles dans Veille-SIREN.</p></html>"
+        )
+        chemin_modele.write_text(contenu, encoding="utf-8")
+        try:
+            if destinataire_modele:
+                envoyer_synthese(
+                    chemin_modele, destinataire=destinataire_modele,
+                    objet=f"Veille-SIREN — {modele['nom']} — {maintenant.strftime('%d/%m/%Y')}",
+                )
+            enregistrer_generation(
+                modele["id"], "succes", chemin_modele,
+                destinataire_modele, date_reference=maintenant,
+            )
+        except (ErreurCourriel, OSError, ValueError) as erreur:
+            enregistrer_generation(
+                modele["id"], "echec", chemin_modele,
+                destinataire_modele, str(erreur), date_reference=maintenant,
+            )
     resume = lire_resume_rapport_html(chemin_synthese)
     terminer_execution_veille(
         identifiant,
@@ -262,7 +333,9 @@ def executer_hebdomadaire(
         rapport=str(chemin_synthese),
     )
     try:
-        chemin_sauvegarde = creer_sauvegarde()
+        chemin_sauvegarde = creer_sauvegarde(
+            conserver=lire_reglages_conservation()["sauvegardes_nombre"]
+        )
         logger.info("Sauvegarde locale créée : %s", chemin_sauvegarde)
         print(f"Sauvegarde créée dans : {chemin_sauvegarde}")
     except ErreurSauvegarde as erreur:
@@ -288,7 +361,7 @@ if __name__ == "__main__":
     analyseur.add_argument(
         "--source",
         choices=SOURCES_DISPONIBLES,
-        default="pappers",
+        default="multisource",
         help="Source juridique utilisée pour la collecte.",
     )
     analyseur.add_argument("--siren", action="append", default=[], help="Limite la collecte à un SIREN.")
@@ -304,7 +377,10 @@ if __name__ == "__main__":
     )
     arguments = analyseur.parse_args()
     if arguments.sauvegarder:
-        print(f"Sauvegarde créée dans : {creer_sauvegarde()}")
+        print(
+            "Sauvegarde créée dans : "
+            f"{creer_sauvegarde(conserver=lire_reglages_conservation()['sauvegardes_nombre'])}"
+        )
     elif arguments.execution_hebdomadaire:
         executer_hebdomadaire(
             sans_interface=True,
@@ -322,3 +398,7 @@ if __name__ == "__main__":
             source=arguments.source,
             sirens=arguments.siren,
         )
+from datetime import datetime
+from html import escape
+
+from config import DOSSIER_RAPPORTS

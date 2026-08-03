@@ -1,6 +1,12 @@
 import json
+import ssl
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+import truststore
+
+
+CONTEXTE_TLS = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
 
 class ErreurAPI(ConnectionError):
@@ -25,7 +31,7 @@ def requete_json(
         methode = "POST"
     requete = Request(url, data=corps, headers=headers, method=methode)
     try:
-        with urlopen(requete, timeout=delai) as reponse:
+        with urlopen(requete, timeout=delai, context=CONTEXTE_TLS) as reponse:
             return json.loads(reponse.read().decode("utf-8"))
     except HTTPError as erreur:
         temporaire = erreur.code in {408, 425, 429} or erreur.code >= 500
@@ -42,7 +48,7 @@ def requete_binaire(
     """Télécharge un contenu binaire et retourne aussi son type MIME."""
     requete = Request(url, headers=entetes or {}, method="GET")
     try:
-        with urlopen(requete, timeout=delai) as reponse:
+        with urlopen(requete, timeout=delai, context=CONTEXTE_TLS) as reponse:
             return reponse.read(), reponse.headers.get_content_type()
     except HTTPError as erreur:
         temporaire = erreur.code in {408, 425, 429} or erreur.code >= 500

@@ -18,9 +18,9 @@ de :
 - produire des rapports journaliers de développement séparés ;
 - fonctionner à terme depuis une interface web.
 
-Pappers est la première source de collecte. L'architecture doit permettre
-l'ajout ultérieur de sources officielles telles que l'INSEE, l'INPI et le
-BODACC.
+La collecte automatique repose en priorité sur les sources officielles :
+Annuaire des entreprises, INSEE, INPI et BODACC. Pappers, première source
+historique du projet, n'est conservé que pour un contrôle manuel ponctuel.
 
 ## Règle de pilotage
 
@@ -38,6 +38,7 @@ Le socle technique disponible comprend :
 - la lecture d'une liste de sociétés depuis Excel ;
 - la validation des SIREN ;
 - la collecte des sociétés actives ;
+- la consultation rapide de l'API officielle Recherche d'entreprises ;
 - l'extraction des principales données Pappers ;
 - la collecte de la dernière publication et du dernier changement BODACC ;
 - la gestion des erreurs société par société ;
@@ -242,6 +243,8 @@ Le connecteur d'envoi SMTP avec TLS est intégré ; ses paramètres sont chiffr�
 par DPAPI et ses erreurs ne bloquent pas la chaîne. Gmail est configuré comme
 expéditeur gratuit et Proton Mail comme destinataire. Un premier envoi réel de
 la synthèse HTML a été accepté avec succès par `smtp.gmail.com:587`.
+L'objet de la synthèse hebdomadaire inclut automatiquement sa date au format
+jour/mois/année afin que les messages soient immédiatement distinguables.
 Le tableau de bord sépare désormais les sociétés ayant eu au moins une
 modification entre leurs deux dernières collectes de celles restées stables.
 La page « Imports » propose un modèle Excel vide et conforme, avec la feuille
@@ -309,7 +312,8 @@ ci-dessous afin que les fonctions visibles reposent sur des données fiables.
 - Utiliser en priorité les sources officielles selon leur spécialité : INSEE
   pour l'identité et l'état administratif, INPI pour les données juridiques et
   BODACC pour les publications et modifications.
-- Conserver Pappers comme complément ou solution de repli.
+- Remplacer la navigation Pappers automatique par l'API officielle Recherche
+  d'entreprises et limiter Pappers aux contrôles manuels ponctuels.
 - Fusionner les réponses sans remplacer une information fiable par une valeur
   vide ou moins récente.
 - Conserver la source et la date de chaque information collectée.
@@ -357,6 +361,15 @@ pas réessayées. Chaque provenance conserve également sa date de collecte ; un
 valeur historique conserve la date de son dernier enrichissement. Ces données
 sont enregistrées dans SQLite et affichées dans l'historique web. La phase 10
 est terminée avec la tâche Windows réelle configurée en `multisource`.
+Le 03/08/2026, après validation du propriétaire, l'API publique Recherche
+d'entreprises a été ajoutée au collecteur. Elle fournit sans authentification
+la raison sociale, le statut administratif, l'adresse du siège et les
+dirigeants. Le mode `multisource` automatique réunit maintenant l'Annuaire des
+entreprises, l'INSEE, l'INPI et le BODACC sans navigateur. Pappers a été retiré
+de ce parcours et de la planification web ; son connecteur reste disponible
+uniquement par une commande manuelle explicite. Cette évolution accélère la
+collecte, évite la dépendance au DOM d'un site tiers et respecte le principe de
+fonctionnement local et gratuit.
 
 ### Phase 11 — Alertes enrichies — TERMINÉE
 
@@ -399,6 +412,9 @@ La page web « Alertes » les présente par priorité, permet de filtrer le nive
 et l'état, d'ouvrir l'historique de la société et de modifier leur état avec la
 protection CSRF. La table a été créée dans la base réelle sans générer d'alerte
 artificielle.
+La liste affiche désormais séparément le SIREN et la dénomination sociale. Le
+statut d'une alerte peut également être modifié directement depuis la fiche de
+la société, sans retour préalable à la liste générale.
 Les préférences sont désormais configurables depuis l'historique de chaque
 société. Toutes les catégories sont actives par défaut ; une catégorie
 désactivée bloque uniquement la création d'une nouvelle alerte, sans retirer le
@@ -425,7 +441,9 @@ l'Annuaire des entreprises, le RNE de l'INPI, l'avis Sirene de l'INSEE et le
 BODACC sont proposés. La chronologie réunit maintenant les collectes, les
 changements détectés et les alertes de la société, classés du plus récent au
 plus ancien. Chaque alerte y conserve son niveau, son état, sa règle, sa source
-et ses valeurs avant/après. La prochaine tranche intégrera les publications
+et ses valeurs avant/après, et son état est modifiable sur place. Les noms des
+entrepreneurs individuels utilisent le prénom et le nom complets diffusibles
+issus des sources officielles. La prochaine tranche intégrera les publications
 disponibles avant d'étendre, si les API le permettent, les actes et comptes
 INPI. La documentation officielle confirme que les comptes annuels sont
 disponibles en JSON/PDF et les actes en PDF via des API distinctes de l'API RNE
@@ -648,7 +666,7 @@ Ces évolutions doivent rester utilisables gratuitement et localement. Aucun
 abonnement ni service payant ne sera rendu obligatoire. Une intégration
 externe facultative devra toujours posséder un fonctionnement local de repli.
 
-### Phase 26 — Centre de configuration — VALIDÉE, À RÉALISER
+### Phase 26 — Centre de configuration — TERMINÉE
 
 - Réunir dans une page unique les réglages actuellement dispersés : sources,
   collecte, courriel, Notion, sauvegardes et conservation des données.
@@ -661,7 +679,21 @@ externe facultative devra toujours posséder un fonctionnement local de repli.
 Critère de fin : l'installation et la vérification des connecteurs peuvent être
 réalisées depuis l'interface, sans modifier manuellement les fichiers Python.
 
-### Phase 27 — Assistant de première utilisation — VALIDÉE, À RÉALISER
+État : terminée le 03/08/2026. Une page « Centre de configuration » réunit
+l'état de l'Annuaire des entreprises, de l'INSEE, de l'INPI, du BODACC, du
+SMTP et de Notion. Les secrets peuvent être enregistrés depuis l'interface et
+restent chiffrés par Windows DPAPI ; seuls les identifiants non sensibles et
+les cibles Notion conservées dans SQLite sont affichés. Chaque connecteur
+dispose d'un test ciblé, le test SMTP authentifie la connexion sans envoyer de
+message, et chaque réussite, échec ou changement est inscrit dans l'audit. La
+planification, les sauvegardes et le diagnostic sont accessibles depuis le
+même écran. La conservation des rapports et le nombre d'archives sont
+configurables, persistés dans SQLite et réellement appliqués. Les cinq
+connecteurs prévus ont été validés avec les configurations réelles ; le rendu
+a été contrôlé sur ordinateur et téléphone sans secret prérempli ni
+débordement.
+
+### Phase 27 — Assistant de première utilisation — TERMINÉE
 
 - Détecter une base neuve et proposer un parcours guidé non bloquant.
 - Guider la configuration des sources gratuites, de l'envoi, de la collecte du
@@ -673,7 +705,7 @@ réalisées depuis l'interface, sans modifier manuellement les fichiers Python.
 Critère de fin : un utilisateur non technique peut rendre l'application
 opérationnelle en suivant uniquement les indications de l'interface.
 
-### Phase 28 — Profils de surveillance — VALIDÉE, À RÉALISER
+### Phase 28 — Profils de surveillance — TERMINÉE
 
 - Transformer les niveaux standard, renforcé et critique en profils explicites.
 - Associer à chaque profil les sources, catégories d'alertes, profondeur
@@ -686,7 +718,7 @@ opérationnelle en suivant uniquement les indications de l'interface.
 Critère de fin : le niveau de surveillance produit un comportement concret,
 compréhensible et couvert par des tests.
 
-### Phase 29 — Calendrier et échéances juridiques — VALIDÉE, À RÉALISER
+### Phase 29 — Calendrier et échéances juridiques — TERMINÉE
 
 - Extraire des données disponibles les dates de clôture, dépôt de comptes,
   assemblées, modifications et autres échéances identifiables.
@@ -699,7 +731,7 @@ compréhensible et couvert par des tests.
 Critère de fin : les échéances à venir sont consultables, traçables et
 exportables, avec indication de leur origine.
 
-### Phase 30 — Tâches et suivi interne — VALIDÉE, À RÉALISER
+### Phase 30 — Tâches et suivi interne — TERMINÉE
 
 - Créer une tâche depuis une société, une alerte, un document ou une erreur.
 - Gérer un responsable, une échéance, une priorité et les états à faire, en
@@ -711,7 +743,7 @@ exportables, avec indication de leur origine.
 Critère de fin : une alerte importante peut être transformée en action suivie
 jusqu'à sa clôture.
 
-### Phase 31 — Notes et dossiers de travail — VALIDÉE, À RÉALISER
+### Phase 31 — Notes et dossiers de travail — TERMINÉE
 
 - Ajouter des notes datées aux sociétés, alertes, documents et tâches.
 - Distinguer le commentaire synthétique actuel des notes d'historique.
@@ -723,7 +755,7 @@ jusqu'à sa clôture.
 Critère de fin : le contexte interne est conservé dans une chronologie
 distincte, sauvegardée et auditable.
 
-### Phase 32 — Comparaison documentaire — VALIDÉE, À RÉALISER
+### Phase 32 — Comparaison documentaire — TERMINÉE
 
 - Permettre de sélectionner deux actes ou comptes d'une même société.
 - Extraire localement le texte des PDF lorsque le document le permet.
@@ -734,7 +766,7 @@ distincte, sauvegardée et auditable.
 Critère de fin : deux versions textuelles peuvent être comparées sans envoyer
 les documents vers un service tiers.
 
-### Phase 33 — Règles d'alerte personnalisées — VALIDÉE, À RÉALISER
+### Phase 33 — Règles d'alerte personnalisées — TERMINÉE
 
 - Créer des règles simples à partir d'un champ, d'un opérateur et d'une valeur.
 - Définir le niveau, le libellé et les destinataires de chaque règle.
@@ -745,7 +777,7 @@ les documents vers un service tiers.
 Critère de fin : une règle peut être créée, simulée, activée et désactivée
 depuis l'interface en toute sécurité.
 
-### Phase 34 — Rapports programmables — VALIDÉE, À RÉALISER
+### Phase 34 — Rapports programmables — TERMINÉE
 
 - Créer des modèles de rapport associant portefeuille, période, niveaux
   d'alerte, sections et formats de sortie.
@@ -758,7 +790,7 @@ depuis l'interface en toute sécurité.
 Critère de fin : plusieurs rapports ciblés peuvent coexister sans modifier le
 rapport hebdomadaire général.
 
-### Phase 35 — API locale et interopérabilité — VALIDÉE, À RÉALISER
+### Phase 35 — API locale et interopérabilité — TERMINÉE
 
 - Exposer une API locale en lecture pour les sociétés, alertes, documents,
   portefeuilles et exécutions.
@@ -771,7 +803,7 @@ rapport hebdomadaire général.
 Critère de fin : un outil local autorisé peut consulter les données sans accès
 direct au fichier SQLite.
 
-### Phase 36 — Accessibilité et finition responsive — VALIDÉE, À RÉALISER
+### Phase 36 — Accessibilité et finition responsive — TERMINÉE
 
 - Auditer toutes les pages au clavier, les libellés, contrastes, messages et
   relations entre contrôles.
@@ -784,7 +816,15 @@ direct au fichier SQLite.
 Critère de fin : les parcours principaux sont utilisables au clavier et aux
 largeurs de référence, sans perte d'information ni d'action.
 
-### Phase 37 — Version stable 1.0 et maintenance — VALIDÉE, À RÉALISER
+Première tranche anticipée réalisée le 03/08/2026 à la demande du propriétaire :
+les débordements de texte sur téléphone ont été corrigés. Les tableaux restent
+défilables sans chevauchement de colonnes, les textes longs et boutons se
+replient dans leur conteneur, et le sous-menu de navigation reste dans l'écran.
+Les pages principales ainsi que la fiche société ont été contrôlées à 390 et
+320 pixels de largeur. L'audit complet d'accessibilité prévu par la phase reste
+à réaliser.
+
+### Phase 37 — Version stable 1.0 et maintenance — EN COURS
 
 - Geler le schéma fonctionnel de la version 1.0 et documenter ses migrations.
 - Créer un installateur ou paquet Windows reproductible avec désinstallation
@@ -797,6 +837,13 @@ largeurs de référence, sans perte d'information ni d'action.
 
 Critère de fin : la version 1.0 peut être installée, utilisée, mise à jour et
 restaurée sur Windows sans intervention dans le code source.
+
+État au 03/08/2026 : le schéma 37, la version 1.0.0, les guides utilisateur et
+maintenance, les limites connues ainsi que les scripts d'installation, de mise
+à jour et de désinstallation sont prêts. La migration de la base réelle a
+préservé toutes les données et son intégrité est valide. Le test d'installation
+neuve reste à reprendre avec `-ExecutionPolicy Bypass`, la politique PowerShell
+du poste ayant bloqué l'exécution directe du script.
 
 ## Décisions à prendre au moment approprié
 

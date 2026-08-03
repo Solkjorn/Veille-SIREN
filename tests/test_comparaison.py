@@ -44,6 +44,58 @@ class TestComparaison(unittest.TestCase):
 
         self.assertEqual(detecter_changements(ancienne, nouvelle), [])
 
+    def test_ignore_la_ponctuation_dans_une_adresse(self):
+        ancienne = Societe(
+            "542051180", adresse="15 CHEMIN DES FREGHIERES, 06670 COLOMARS"
+        )
+        nouvelle = Societe(
+            "542051180", adresse="15 chemin des Freghieres 06670 Colomars"
+        )
+
+        self.assertEqual(detecter_changements(ancienne, nouvelle), [])
+
+    def test_ignore_ordre_casse_et_ordre_nom_prenom_des_dirigeants(self):
+        ancienne = Societe(
+            "542051180",
+            dirigeant=(
+                "Maltese Christopher (Gérant et associé indéfiniment responsable) ; "
+                "BM HOLDING (Associé indéfiniment responsable) ; "
+                "Guillet Carole (Associé indéfiniment responsable)"
+            ),
+        )
+        nouvelle = Societe(
+            "542051180",
+            dirigeant=(
+                "CAROLE GUILLET (Associé indéfiniment responsable) ; "
+                "CHRISTOPHER MALTESE (Gérant et associé indéfiniment responsable) ; "
+                "BM HOLDING (Associé indéfiniment responsable)"
+            ),
+        )
+
+        self.assertEqual(detecter_changements(ancienne, nouvelle), [])
+
+    def test_ignore_prenom_secondaire_et_qualite_absente_d_un_independant(self):
+        ancienne = Societe(
+            "542051180", dirigeant="ZERMATTI CLAUDE (Chef d'entreprise)"
+        )
+        nouvelle = Societe(
+            "542051180", dirigeant="CLAUDE GILBERT ZERMATTI"
+        )
+
+        self.assertEqual(detecter_changements(ancienne, nouvelle), [])
+
+    def test_ignore_l_ordre_du_nom_d_un_entrepreneur_individuel(self):
+        ancienne = Societe(
+            "542051180", raison_sociale="ZERMATTI CLAUDE",
+            forme_juridique="Entrepreneur individuel",
+        )
+        nouvelle = Societe(
+            "542051180", raison_sociale="CLAUDE ZERMATTI",
+            forme_juridique="Entrepreneur individuel",
+        )
+
+        self.assertEqual(detecter_changements(ancienne, nouvelle), [])
+
     def test_preserve_un_champ_non_recollecte_sans_creer_de_fausse_alerte(self):
         ancienne = Societe(
             siren="542051180", capital="100 000 €", source="Pappers",

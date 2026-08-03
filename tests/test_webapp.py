@@ -9,7 +9,7 @@ from openpyxl import Workbook, load_workbook
 
 from modules.base_donnees import (
     alertes_immediates_actives, enregistrer_alertes, enregistrer_societe,
-    lire_alertes,
+    lire_alertes, lire_audit, lire_cible_notion,
 )
 from modules.comparaison import Changement
 from modules.modele import Societe
@@ -21,6 +21,86 @@ from webapp import creer_application
 
 
 class TestApplicationWeb(unittest.TestCase):
+    @patch("webapp.lire_etat_tache", return_value={
+        "disponible": True, "etat": "Ready", "prochaine": "2026-08-10T07:00:00",
+    })
+    @patch("webapp.lire_jeton_notion", return_value="secret-notion")
+    @patch("webapp.lire_configuration_smtp", return_value={
+        "hote": "smtp.test", "port": "587", "utilisateur": "user@test.fr",
+        "mot_de_passe": "secret-smtp", "expediteur": "a@test.fr",
+        "destinataire": "b@test.fr",
+    })
+    @patch("webapp.lire_identifiants_inpi", return_value=("compte-inpi", "secret-inpi"))
+    @patch("webapp.lire_cle_insee", return_value="secret-insee")
+    def test_configuration_affiche_les_etats_sans_reveler_les_secrets(
+        self, mock_insee, mock_inpi, mock_smtp, mock_notion, mock_tache
+    ):
+        page = self.client.get("/configuration").get_data(as_text=True)
+
+        self.assertIn("Centre de configuration", page)
+        self.assertIn("compte-inpi", page)
+        self.assertIn("smtp.test", page)
+        self.assertNotIn("secret-insee", page)
+        self.assertNotIn("secret-inpi", page)
+        self.assertNotIn("secret-smtp", page)
+        self.assertNotIn("secret-notion", page)
+
+    @patch("webapp.proteger_cle_insee")
+    def test_configuration_enregistre_insee_et_audite(self, mock_proteger):
+        reponse = self.client.post(
+            "/configuration/insee", data={"cle_api": "nouvelle-cle"}
+        )
+
+        self.assertEqual(reponse.status_code, 302)
+        mock_proteger.assert_called_once_with("nouvelle-cle")
+        actions = lire_audit(10, chemin=self.base)
+        self.assertEqual(actions[0]["action"], "configuration_connecteur")
+        self.assertEqual(actions[0]["cible"], "INSEE")
+
+    @patch("webapp.proteger_jeton_notion")
+    def test_configuration_enregistre_notion_dans_sqlite(self, mock_proteger):
+        reponse = self.client.post("/configuration/notion", data={
+            "jeton": "secret", "rapports_veille": "veille-1",
+            "rapports_developpement": "journal-1",
+        })
+
+        self.assertEqual(reponse.status_code, 302)
+        mock_proteger.assert_called_once_with("secret")
+        self.assertEqual(
+            lire_cible_notion("rapports_veille", self.base), "veille-1"
+        )
+        self.assertEqual(
+            lire_cible_notion("rapports_developpement", self.base), "journal-1"
+        )
+
+    def test_configuration_enregistre_la_conservation_et_audite(self):
+        reponse = self.client.post("/configuration/conservation", data={
+            "rapports_jours": "730", "sauvegardes_nombre": "24",
+        })
+
+        self.assertEqual(reponse.status_code, 302)
+        page = self.client.get("/configuration").get_data(as_text=True)
+        self.assertIn('value="730"', page)
+        self.assertIn('value="24"', page)
+        self.assertEqual(
+            lire_audit(10, chemin=self.base)[0]["action"],
+            "configuration_conservation",
+        )
+
+    @patch("webapp.SourceBODACC.collecter")
+    def test_configuration_teste_un_connecteur_et_audite(self, mock_collecter):
+        reponse = self.client.post(
+            "/configuration/tester/bodacc", follow_redirects=True
+        )
+
+        self.assertEqual(reponse.status_code, 200)
+        self.assertIn("Connexion BODACC validée", reponse.get_data(as_text=True))
+        mock_collecter.assert_called_once_with("356000000")
+        self.assertEqual(
+            lire_audit(10, chemin=self.base)[0]["action"],
+            "test_connecteur_succes",
+        )
+
     def test_entetes_de_securite_locale(self):
         reponse = self.client.get("/")
         self.assertEqual(reponse.headers["X-Content-Type-Options"], "nosniff")
@@ -39,6 +119,9 @@ class TestApplicationWeb(unittest.TestCase):
         self.assertIn("default-src 'self'", reponse.headers["Content-Security-Policy"])
 
     def test_affiche_filtre_et_traite_une_alerte(self):
+        enregistrer_societe(
+            Societe("542051180", raison_sociale="SOCIÉTÉ D'ALERTE"), self.base
+        )
         changement = Changement(
             champ="statut", libelle="Statut", ancienne_valeur="Active",
             nouvelle_valeur="Radiée", niveau="critique",
@@ -56,6 +139,8 @@ class TestApplicationWeb(unittest.TestCase):
         self.assertIn("Alertes juridiques", page)
         self.assertIn("statut de cessation ou radiation", page)
         self.assertIn("Radiée", page)
+        self.assertIn("Dénomination sociale", page)
+        self.assertIn("SOCIÉTÉ D&#39;ALERTE", page)
 
         identifiant = lire_alertes(chemin=self.base)[0]["identifiant"]
         reponse = self.client.post(
@@ -87,6 +172,29 @@ class TestApplicationWeb(unittest.TestCase):
         self.assertIn("Aucune société", page)
         self.assertIn('href="/imports"', page)
         self.assertNotIn("Sélectionner une liste de sociétés", page)
+
+    def test_espace_travail_api_et_accessibilite_sont_disponibles(self):
+        for chemin, titre in (
+            ("/demarrage", "Assistant de première utilisation"),
+            ("/profils", "Profils de surveillance"),
+            ("/calendrier", "Calendrier juridique"),
+            ("/taches", "Tâches internes"),
+            ("/notes", "Notes et dossiers de travail"),
+            ("/documents/comparer", "Comparaison documentaire locale"),
+            ("/regles", "Règles d’alerte personnalisées"),
+            ("/modeles-rapports", "Rapports programmables"),
+            ("/api", "API locale v1"),
+        ):
+            with self.subTest(chemin=chemin):
+                reponse = self.client.get(chemin)
+                self.assertEqual(reponse.status_code, 200)
+                page = reponse.get_data(as_text=True)
+                self.assertIn(titre, page)
+                self.assertIn("Aller au contenu principal", page)
+                self.assertIn('id="contenu-principal"', page)
+        donnees = self.client.get("/api/v1/societes").get_json()
+        self.assertEqual(donnees["version"], "v1")
+        self.assertEqual(donnees["donnees"], [])
 
     def test_affiche_le_formulaire_d_import_sur_une_page_dediee(self):
         reponse = self.client.get("/imports")
@@ -344,6 +452,20 @@ class TestApplicationWeb(unittest.TestCase):
         self.assertIn("Actes et comptes INPI", page)
         self.assertIn("Statuts mis à jour", page)
         self.assertIn("Télécharger le PDF", page)
+        self.assertIn("gestion-alerte-fiche", page)
+
+        identifiant = lire_alertes(siren="542051180", chemin=self.base)[0]["identifiant"]
+        reponse = self.client.post(
+            f"/alertes/{identifiant}/statut",
+            data={"statut": "traitee", "retour": "fiche", "siren": "542051180"},
+        )
+        self.assertEqual(
+            reponse.headers["Location"], "/societes/542051180/historique"
+        )
+        self.assertEqual(
+            lire_alertes(siren="542051180", chemin=self.base)[0]["statut"],
+            "traitee",
+        )
 
         reponse = self.client.post(
             "/societes/542051180/preferences-alertes",

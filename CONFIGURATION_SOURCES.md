@@ -3,17 +3,34 @@
 La source se sélectionne avec l'option `--source` :
 
 ```powershell
-python main.py --source pappers
+python main.py --source multisource
+python main.py --source annuaire
 python main.py --source bodacc
 python main.py --source insee
 python main.py --source inpi
 ```
 
-Le mode sans fenêtre Chromium reste disponible pour Pappers :
+Sans option, `multisource` est utilisé. Ce mode réunit l'Annuaire des
+entreprises, l'INSEE, l'INPI et le BODACC sans ouvrir de navigateur.
+
+## Annuaire des entreprises
+
+L'API Recherche d'entreprises est officielle, gratuite et sans clé. Elle
+alimente notamment l'identité, l'état administratif, l'adresse du siège et les
+dirigeants. Veille-SIREN envoie un `User-Agent` explicite et applique ses
+reprises progressives aux réponses temporaires, notamment HTTP 429.
+
+## Pappers — secours manuel uniquement
+
+Pappers n'est plus utilisé par la collecte automatique. Son connecteur est
+conservé provisoirement pour un contrôle manuel ponctuel :
 
 ```powershell
 python main.py --source pappers --sans-interface
 ```
+
+Cette commande ouvre Chromium et reste sensiblement plus lente que les API
+officielles. Elle ne doit pas servir à une extraction automatisée récurrente.
 
 ## BODACC
 
@@ -98,6 +115,7 @@ le même registre anti-doublon.
 
 ## Documentation officielle
 
+- Annuaire des entreprises : https://recherche-entreprises.api.gouv.fr/docs/
 - INSEE : https://portail-api.insee.fr/catalog/api/2ba0e549-5587-3ef1-9082-99cd865de66f
 - INPI : https://www.inpi.fr/ressources/formalites-dentreprises/acces-lapi-formalite-rne
 - BODACC : https://www.data.gouv.fr/dataservices/api-bulletin-officiel-des-annonces-civiles-et-commerciales-bodacc
@@ -113,15 +131,15 @@ Une seconde exécution est ignorée tant que la première n'est pas terminée.
 Pour créer ou remettre à jour cette tâche :
 
 ```powershell
-python -m modules.planification --installer --source pappers
+python -m modules.planification --installer --source multisource
 ```
 
 Le jour, l'heure, la minute et la source peuvent également être modifiés depuis
 la page « Automatisation » de l'interface web.
 
-La tâche utilise l'environnement Python local hors du dépôt et s'exécute sans
-fenêtre Chromium. Elle est limitée à deux heures et ne s'exécute que lorsque
-le compte Windows de l'utilisateur est ouvert.
+La tâche utilise l'environnement Python local hors du dépôt. Le mode
+multisource officiel n'ouvre pas Chromium. Elle est limitée à deux heures et
+ne s'exécute que lorsque le compte Windows de l'utilisateur est ouvert.
 
 ## Envoi SMTP
 

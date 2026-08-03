@@ -157,6 +157,112 @@ CREATE TABLE IF NOT EXISTS envois_portefeuilles (
     date_envoi TEXT NOT NULL,
     FOREIGN KEY (portefeuille_id) REFERENCES portefeuilles(id)
 );
+
+CREATE TABLE IF NOT EXISTS profils_surveillance (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL UNIQUE,
+    nom TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    sources TEXT NOT NULL DEFAULT '',
+    categories TEXT NOT NULL DEFAULT '',
+    profondeur_documentaire TEXT NOT NULL DEFAULT 'metadonnees',
+    notification TEXT NOT NULL DEFAULT 'hebdomadaire',
+    modifiable INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS profils_societes (
+    siren TEXT PRIMARY KEY,
+    profil_code TEXT NOT NULL,
+    exceptions TEXT NOT NULL DEFAULT '{}'
+);
+CREATE TABLE IF NOT EXISTS echeances (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    siren TEXT NOT NULL DEFAULT '',
+    libelle TEXT NOT NULL,
+    date_echeance TEXT NOT NULL,
+    origine TEXT NOT NULL DEFAULT 'interne',
+    officielle INTEGER NOT NULL DEFAULT 0,
+    commentaire TEXT NOT NULL DEFAULT '',
+    responsable TEXT NOT NULL DEFAULT '',
+    rappel_jours INTEGER NOT NULL DEFAULT 7,
+    statut TEXT NOT NULL DEFAULT 'a_venir',
+    date_creation TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS taches_internes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    siren TEXT NOT NULL DEFAULT '',
+    titre TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    origine_type TEXT NOT NULL DEFAULT 'societe',
+    origine_id TEXT NOT NULL DEFAULT '',
+    responsable TEXT NOT NULL DEFAULT '',
+    date_echeance TEXT NOT NULL DEFAULT '',
+    priorite TEXT NOT NULL DEFAULT 'normale',
+    statut TEXT NOT NULL DEFAULT 'a_faire',
+    date_creation TEXT NOT NULL,
+    date_modification TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS historique_taches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tache_id INTEGER NOT NULL,
+    ancien_statut TEXT NOT NULL DEFAULT '',
+    nouveau_statut TEXT NOT NULL,
+    date_changement TEXT NOT NULL,
+    FOREIGN KEY (tache_id) REFERENCES taches_internes(id)
+);
+CREATE TABLE IF NOT EXISTS notes_travail (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    siren TEXT NOT NULL DEFAULT '',
+    cible_type TEXT NOT NULL DEFAULT 'societe',
+    cible_id TEXT NOT NULL DEFAULT '',
+    contenu TEXT NOT NULL,
+    epinglee INTEGER NOT NULL DEFAULT 0,
+    date_creation TEXT NOT NULL,
+    date_modification TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS liens_societes (
+    siren_source TEXT NOT NULL,
+    siren_cible TEXT NOT NULL,
+    libelle TEXT NOT NULL DEFAULT '',
+    date_creation TEXT NOT NULL,
+    PRIMARY KEY (siren_source, siren_cible)
+);
+CREATE TABLE IF NOT EXISTS regles_personnalisees (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom TEXT NOT NULL,
+    champ TEXT NOT NULL,
+    operateur TEXT NOT NULL,
+    valeur TEXT NOT NULL,
+    niveau TEXT NOT NULL DEFAULT 'important',
+    libelle TEXT NOT NULL,
+    destinataires TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 0,
+    version INTEGER NOT NULL DEFAULT 1,
+    date_modification TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS modeles_rapports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom TEXT NOT NULL UNIQUE,
+    portefeuille_id INTEGER,
+    periode TEXT NOT NULL DEFAULT '7',
+    niveaux TEXT NOT NULL DEFAULT 'critique,important,informatif',
+    sections TEXT NOT NULL DEFAULT 'resume,alertes,societes',
+    format_sortie TEXT NOT NULL DEFAULT 'html',
+    cadence TEXT NOT NULL DEFAULT 'hebdomadaire',
+    destinataire TEXT NOT NULL DEFAULT '',
+    actif INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (portefeuille_id) REFERENCES portefeuilles(id)
+);
+CREATE TABLE IF NOT EXISTS generations_rapports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    modele_id INTEGER NOT NULL,
+    statut TEXT NOT NULL,
+    chemin TEXT NOT NULL DEFAULT '',
+    destinataire TEXT NOT NULL DEFAULT '',
+    message TEXT NOT NULL DEFAULT '',
+    date_generation TEXT NOT NULL,
+    empreinte TEXT NOT NULL UNIQUE,
+    FOREIGN KEY (modele_id) REFERENCES modeles_rapports(id)
+);
 """
 
 
@@ -192,7 +298,17 @@ def initialiser_base(chemin: Path = BASE_SQLITE) -> None:
                     "ALTER TABLE portefeuilles ADD COLUMN destinataire "
                     "TEXT NOT NULL DEFAULT ''"
                 )
-            connexion.execute("PRAGMA user_version = 25")
+            profils = (
+                ("standard", "Standard", "Veille générale hebdomadaire", "annuaire,insee,inpi,bodacc", "publication,identite,forme_juridique", "metadonnees", "hebdomadaire", 1),
+                ("renforce", "Renforcé", "Veille juridique et documentaire approfondie", "annuaire,insee,inpi,bodacc", ",".join(CATEGORIES_ALERTES), "documents", "important", 1),
+                ("critique", "Critique", "Surveillance prioritaire avec notifications immédiates", "annuaire,insee,inpi,bodacc", ",".join(CATEGORIES_ALERTES), "documents", "immediate", 1),
+            )
+            connexion.executemany(
+                "INSERT OR IGNORE INTO profils_surveillance "
+                "(code,nom,description,sources,categories,profondeur_documentaire,notification,modifiable) "
+                "VALUES (?,?,?,?,?,?,?,?)", profils,
+            )
+            connexion.execute("PRAGMA user_version = 37")
 
 
 def enregistrer_alertes(
@@ -310,6 +426,50 @@ def configurer_alertes_immediates(
     return bool(active)
 
 
+def lire_reglages_conservation(chemin: Path = BASE_SQLITE) -> dict[str, int]:
+    """Lit les durées et volumes de conservation, avec des valeurs sûres."""
+    initialiser_base(chemin)
+    valeurs = {"rapports_jours": 365, "sauvegardes_nombre": 12}
+    with closing(sqlite3.connect(chemin)) as connexion:
+        lignes = connexion.execute(
+            "SELECT cle, valeur FROM configuration WHERE cle IN (?, ?)",
+            tuple(valeurs),
+        ).fetchall()
+    for cle, valeur in lignes:
+        try:
+            nombre = int(valeur)
+        except (TypeError, ValueError):
+            continue
+        if nombre > 0:
+            valeurs[cle] = nombre
+    return valeurs
+
+
+def configurer_reglages_conservation(
+    rapports_jours: int,
+    sauvegardes_nombre: int,
+    chemin: Path = BASE_SQLITE,
+) -> dict[str, int]:
+    """Enregistre les règles locales de conservation non sensibles."""
+    rapports_jours = int(rapports_jours)
+    sauvegardes_nombre = int(sauvegardes_nombre)
+    if not 30 <= rapports_jours <= 3650:
+        raise ValueError("La conservation des rapports doit être comprise entre 30 et 3650 jours.")
+    if not 1 <= sauvegardes_nombre <= 100:
+        raise ValueError("Le nombre de sauvegardes doit être compris entre 1 et 100.")
+    valeurs = {
+        "rapports_jours": rapports_jours,
+        "sauvegardes_nombre": sauvegardes_nombre,
+    }
+    initialiser_base(chemin)
+    with closing(sqlite3.connect(chemin)) as connexion, connexion:
+        connexion.executemany(
+            "INSERT OR REPLACE INTO configuration (cle, valeur) VALUES (?, ?)",
+            [(cle, str(valeur)) for cle, valeur in valeurs.items()],
+        )
+    return valeurs
+
+
 def lire_alertes(
     limite: int = 100,
     *,
@@ -323,21 +483,23 @@ def lire_alertes(
         raise ValueError("La limite doit être positive.")
     conditions, parametres = [], []
     if niveau:
-        conditions.append("niveau = ?")
+        conditions.append("a.niveau = ?")
         parametres.append(niveau)
     if statut:
-        conditions.append("statut = ?")
+        conditions.append("a.statut = ?")
         parametres.append(statut)
     if siren:
-        conditions.append("siren = ?")
+        conditions.append("a.siren = ?")
         parametres.append(str(siren).strip())
     filtre = f" WHERE {' AND '.join(conditions)}" if conditions else ""
     initialiser_base(chemin)
     with closing(sqlite3.connect(chemin)) as connexion:
         connexion.row_factory = sqlite3.Row
         lignes = connexion.execute(
-            f"SELECT * FROM alertes{filtre} "
-            "ORDER BY CASE niveau WHEN 'critique' THEN 0 "
+            "SELECT a.*, COALESCE((SELECT c.raison_sociale FROM collectes c "
+            "WHERE c.siren = a.siren ORDER BY c.id DESC LIMIT 1), '') "
+            f"AS raison_sociale FROM alertes a{filtre} "
+            "ORDER BY CASE a.niveau WHEN 'critique' THEN 0 "
             "WHEN 'important' THEN 1 ELSE 2 END, date_detection DESC LIMIT ?",
             (*parametres, limite),
         ).fetchall()
@@ -710,6 +872,29 @@ def lire_derniere_collecte(
         return None
 
     return _convertir_collecte(ligne)
+
+
+def lire_derniere_forme_juridique_lisible(
+    siren: str,
+    chemin: Path = BASE_SQLITE,
+) -> str:
+    """Retrouve le dernier libellé juridique textuel antérieur d'un SIREN."""
+    initialiser_base(chemin)
+    with closing(sqlite3.connect(chemin)) as connexion:
+        lignes = connexion.execute(
+            """
+            SELECT forme_juridique
+            FROM collectes
+            WHERE siren = ? AND TRIM(forme_juridique) <> ''
+            ORDER BY id DESC
+            """,
+            (str(siren).strip(),),
+        ).fetchall()
+    for (valeur,) in lignes:
+        valeur = str(valeur or "").strip()
+        if valeur and not valeur.isdigit():
+            return valeur
+    return ""
 
 
 def _convertir_collecte(ligne: sqlite3.Row) -> Societe:

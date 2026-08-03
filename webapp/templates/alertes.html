@@ -34,12 +34,13 @@
     </form>
     {% if alertes %}
       <div class="tableau-defilant"><table>
-        <thead><tr><th>Niveau</th><th>Société</th><th>Événement</th><th>Date et source</th><th>État</th></tr></thead>
+        <thead><tr><th>Niveau</th><th>SIREN</th><th>Dénomination sociale</th><th>Événement</th><th>Date et source</th><th>État</th></tr></thead>
         <tbody>
           {% for alerte in alertes %}
             <tr>
               <td><span class="badge niveau-{{ alerte.niveau }}">{{ alerte.niveau|capitalize }}</span></td>
               <td><a href="{{ url_for('historique_societe', siren=alerte.siren) }}">{{ alerte.siren }}</a></td>
+              <td><a href="{{ url_for('historique_societe', siren=alerte.siren) }}">{{ alerte.raison_sociale or 'Dénomination non renseignée' }}</a></td>
               <td><strong>{{ alerte.regle }}</strong><br>{{ alerte.ancienne_valeur or 'Non renseigné' }} → {{ alerte.nouvelle_valeur or 'Non renseigné' }}</td>
               <td>{{ alerte.date_detection|replace('T', ' ') }}<br>{{ alerte.source }}</td>
               <td>

@@ -7,13 +7,14 @@ import secrets
 import subprocess
 import sys
 import zipfile
+from difflib import HtmlDiff
 from io import BytesIO
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from flask import (
-    Flask, abort, flash, redirect, render_template, request, send_file,
-    session, url_for,
+    Flask, Response, abort, flash, jsonify, redirect, render_template, request,
+    send_file, session, url_for,
 )
 
 from config import BASE_SQLITE, DOSSIER_RAPPORTS, DOSSIER_SAUVEGARDES
@@ -37,6 +38,10 @@ from modules.base_donnees import (
     configurer_destinataire_portefeuille,
     lire_documents_inpi_tous,
     compter_documents_inpi,
+    configurer_cible_notion,
+    lire_cible_notion,
+    lire_reglages_conservation,
+    configurer_reglages_conservation,
     enregistrer_audit,
     lire_audit,
 )
@@ -49,9 +54,28 @@ from modules.import_excel import (
 from modules.logger import FICHIER_LOG
 from modules.exports import exporter_excel, exporter_pdf
 from modules.planification import installer_tache, lancer_tache, lire_etat_tache
-from modules.sources import SourceINPI
+from modules.courriel import ErreurCourriel, verifier_connexion_smtp
+from modules.notion import ErreurNotion, verifier_connexion_notion
+from modules.sources import (
+    SourceAnnuaireEntreprises, SourceBODACC, SourceINPI, SourceINSEE,
+)
 from modules.sauvegarde import creer_sauvegarde, verifier_restauration, ErreurSauvegarde
+from modules.secrets_windows import (
+    lire_cle_insee, lire_configuration_smtp, lire_identifiants_inpi,
+    lire_jeton_notion, proteger_cle_insee, proteger_configuration_smtp,
+    proteger_identifiants_inpi, proteger_jeton_notion,
+)
 from modules.diagnostic import diagnostiquer_application
+from modules.espace_travail import (
+    CHAMPS_REGLES, OPERATEURS_REGLES, PRIORITES_TACHES, STATUTS_TACHES,
+    activer_modele_rapport, ajouter_echeance, ajouter_lien_societes, ajouter_note, ajouter_tache,
+    appliquer_profil_societe, changer_statut_tache, enregistrer_generation,
+    enregistrer_modele_rapport, enregistrer_profil, enregistrer_progression_demarrage,
+    enregistrer_regle, epingler_note, evaluer_regle, exporter_echeances_ics,
+    exporter_notes_csv, exporter_taches_csv, lire_echeances, lire_liens_societe, lire_modeles_rapports,
+    lire_notes, lire_profil_societe, lire_profils, lire_progression_demarrage,
+    lire_regles, lire_taches, simuler_regle,
+)
 from modules.societes_surveillees import (
     activer_societe_surveillee,
     ajouter_societe_surveillee,
@@ -90,6 +114,13 @@ def creer_application(configuration: dict | None = None) -> Flask:
         )
         return reponse
 
+    @application.before_request
+    def limiter_api_au_poste_local():
+        if request.path.startswith("/api") and request.remote_addr not in {
+            "127.0.0.1", "::1", None,
+        }:
+            abort(403)
+
     apercus_import: dict[str, tuple[datetime, object]] = {}
 
     def chemin_base() -> Path:
@@ -110,6 +141,17 @@ def creer_application(configuration: dict | None = None) -> Flask:
         attendu = session.get("jeton_csrf", "")
         if not attendu or not hmac.compare_digest(recu, attendu):
             abort(400)
+
+    @application.context_processor
+    def contexte_espace_travail():
+        progression = lire_progression_demarrage(chemin_base())
+        return {
+            "progression_demarrage": progression,
+            "nombre_taches_ouvertes": len([
+                t for t in lire_taches(chemin=chemin_base())
+                if t["statut"] != "terminee"
+            ]),
+        }
 
     application.jinja_env.globals["jeton_csrf"] = jeton_csrf
 
@@ -328,6 +370,13 @@ def creer_application(configuration: dict | None = None) -> Flask:
             abort(404)
         else:
             flash("État de l'alerte mis à jour.", "succes")
+        siren_retour = request.form.get("siren", "").strip()
+        if (
+            request.form.get("retour") == "fiche"
+            and re.fullmatch(r"\d{9}", siren_retour)
+            and lire_societe_surveillee(siren_retour, chemin_base()) is not None
+        ):
+            return redirect(url_for("historique_societe", siren=siren_retour))
         return redirect(url_for("alertes"))
 
     @application.post("/societes")
@@ -464,7 +513,7 @@ def creer_application(configuration: dict | None = None) -> Flask:
             heure = int(request.form.get("heure", "7"))
             minute = int(request.form.get("minute", "0"))
             installer_tache(
-                source=request.form.get("source", "pappers"),
+                source=request.form.get("source", "multisource"),
                 jour_semaine=jour, heure=heure, minute=minute,
             )
         except (OSError, RuntimeError, ValueError) as erreur:
@@ -601,6 +650,11 @@ def creer_application(configuration: dict | None = None) -> Flask:
             documents_inpi=lire_documents_inpi(siren, chemin_base()),
             categories_alertes=CATEGORIES_ALERTES,
             preferences_alertes=lire_preferences_alertes(siren, chemin_base()),
+            profils=lire_profils(chemin_base()),
+            profil_societe=lire_profil_societe(siren, chemin_base()),
+            taches_societe=lire_taches(siren=siren, chemin=chemin_base()),
+            notes_societe=lire_notes(siren=siren, chemin=chemin_base()),
+            liens_societe=lire_liens_societe(siren, chemin_base()),
         )
 
     @application.get("/documents-inpi/<type_document>/<identifiant>/telecharger")
@@ -710,9 +764,10 @@ def creer_application(configuration: dict | None = None) -> Flask:
 
     @application.get("/sauvegardes")
     def sauvegardes():
+        conservation = lire_reglages_conservation(chemin_base())
         archives = sorted(DOSSIER_SAUVEGARDES.glob("veille-siren_*.zip"), key=lambda p:p.stat().st_mtime, reverse=True)
         controles = []
-        for archive in archives[:12]:
+        for archive in archives[:conservation["sauvegardes_nombre"]]:
             try:
                 controle=verifier_restauration(archive); controle["nom"]=archive.name; controles.append(controle)
             except ErreurSauvegarde as e: controles.append({"archive":str(archive),"nom":archive.name,"integrite":str(e),"date":"","fichiers":0,"tables":0})
@@ -720,7 +775,7 @@ def creer_application(configuration: dict | None = None) -> Flask:
 
     @application.post("/sauvegardes/creer")
     def creer_sauvegarde_web():
-        verifier_csrf(); creer_sauvegarde(chemin_base=chemin_base()); auditer("creation_sauvegarde", "base_locale"); flash("Sauvegarde créée et vérifiée.", "succes"); return redirect(url_for("sauvegardes"))
+        verifier_csrf(); conservation=lire_reglages_conservation(chemin_base()); creer_sauvegarde(chemin_base=chemin_base(), conserver=conservation["sauvegardes_nombre"]); auditer("creation_sauvegarde", "base_locale"); flash("Sauvegarde créée et vérifiée.", "succes"); return redirect(url_for("sauvegardes"))
 
     @application.get("/sauvegardes/<nom>")
     def telecharger_sauvegarde(nom):
@@ -749,7 +804,7 @@ def creer_application(configuration: dict | None = None) -> Flask:
 
     @application.get("/portefeuilles")
     def portefeuilles():
-        return render_template("portefeuilles.html", portefeuilles=lire_portefeuilles(chemin_base()), societes=lire_societes_surveillees(actives_uniquement=True, chemin=chemin_base()))
+        return render_template("portefeuilles.html", portefeuilles=lire_portefeuilles(chemin_base()), societes=lire_societes_surveillees(actives_uniquement=True, chemin=chemin_base()), profils=lire_profils(chemin_base()))
 
     @application.post("/portefeuilles")
     def ajouter_portefeuille():
@@ -772,6 +827,16 @@ def creer_application(configuration: dict | None = None) -> Flask:
     @application.post("/portefeuilles/<int:identifiant>/affecter")
     def affecter_societe_portefeuille(identifiant):
         verifier_csrf(); affecter_portefeuille(identifiant,request.form.get("siren"),request.form.get("etiquettes",""),request.form.get("contact",""),chemin_base()); return redirect(url_for("portefeuilles"))
+
+    @application.post("/portefeuilles/<int:identifiant>/profil")
+    def modifier_profil_portefeuille(identifiant):
+        verifier_csrf(); code=request.form.get("profil", "")
+        try:
+            membres=lire_societes_portefeuille(identifiant,chemin_base())
+            for membre in membres: appliquer_profil_societe(membre["siren"],code,chemin=chemin_base())
+        except ValueError as erreur: flash(str(erreur),"erreur")
+        else: auditer("profil_portefeuille",str(identifiant),code); flash(f"Profil appliqué à {len(membres)} société(s).","succes")
+        return redirect(url_for("portefeuilles"))
 
     @application.get("/portefeuilles/<int:identifiant>/export.csv")
     def exporter_portefeuille(identifiant):
@@ -856,6 +921,174 @@ def creer_application(configuration: dict | None = None) -> Flask:
             pret=all(controle["ok"] for controle in controles),
         )
 
+    @application.get("/configuration")
+    def configuration_centrale():
+        """Présente les réglages sans transmettre les secrets au navigateur."""
+        erreurs_configuration = []
+
+        def lire_sans_erreur(nom, fonction, defaut):
+            try:
+                return fonction()
+            except (OSError, ValueError) as erreur:
+                erreurs_configuration.append(f"{nom} : {erreur}")
+                return defaut
+
+        cle_insee = lire_sans_erreur("INSEE", lire_cle_insee, "")
+        identifiant_inpi, mot_de_passe_inpi = lire_sans_erreur(
+            "INPI", lire_identifiants_inpi, ("", "")
+        )
+        smtp = lire_sans_erreur("SMTP", lire_configuration_smtp, {})
+        jeton_notion = lire_sans_erreur("Notion", lire_jeton_notion, "")
+        planification = lire_etat_tache()
+        conservation = lire_reglages_conservation(chemin_base())
+        return render_template(
+            "configuration.html",
+            connecteurs={
+                "annuaire": {"configure": True, "detail": "API publique sans clé"},
+                "insee": {"configure": bool(cle_insee), "detail": "Clé DPAPI protégée"},
+                "inpi": {
+                    "configure": bool(identifiant_inpi and mot_de_passe_inpi),
+                    "detail": "Identifiants DPAPI protégés",
+                },
+                "bodacc": {"configure": True, "detail": "API publique sans clé"},
+                "smtp": {"configure": bool(smtp), "detail": "Configuration DPAPI protégée"},
+                "notion": {"configure": bool(jeton_notion), "detail": "Jeton DPAPI protégé"},
+            },
+            identifiant_inpi=identifiant_inpi,
+            smtp_public={
+                cle: smtp.get(cle, "")
+                for cle in (
+                    "hote", "port", "utilisateur", "expediteur", "destinataire"
+                )
+            },
+            notion={
+                "rapports_veille": lire_cible_notion(
+                    "rapports_veille", chemin_base()
+                ),
+                "rapports_developpement": lire_cible_notion(
+                    "rapports_developpement", chemin_base()
+                ),
+            },
+            planification=planification,
+            sauvegardes=len(list(DOSSIER_SAUVEGARDES.glob("veille-siren_*.zip"))),
+            erreurs_configuration=erreurs_configuration,
+            conservation=conservation,
+        )
+
+    @application.post("/configuration/conservation")
+    def configurer_conservation_web():
+        verifier_csrf()
+        try:
+            configurer_reglages_conservation(
+                request.form.get("rapports_jours", ""),
+                request.form.get("sauvegardes_nombre", ""),
+                chemin_base(),
+            )
+        except (TypeError, ValueError) as erreur:
+            flash(str(erreur), "erreur")
+        else:
+            auditer("configuration_conservation", "stockage_local")
+            flash("Les règles de conservation sont enregistrées.", "succes")
+        return redirect(url_for("configuration_centrale"))
+
+    @application.post("/configuration/insee")
+    def configurer_insee_web():
+        verifier_csrf()
+        try:
+            proteger_cle_insee(request.form.get("cle_api", ""))
+        except (OSError, ValueError) as erreur:
+            flash(str(erreur), "erreur")
+        else:
+            auditer("configuration_connecteur", "INSEE")
+            flash("La clé INSEE est protégée dans le coffre Windows.", "succes")
+        return redirect(url_for("configuration_centrale"))
+
+    @application.post("/configuration/inpi")
+    def configurer_inpi_web():
+        verifier_csrf()
+        try:
+            proteger_identifiants_inpi(
+                request.form.get("identifiant", ""),
+                request.form.get("mot_de_passe", ""),
+            )
+        except (OSError, ValueError) as erreur:
+            flash(str(erreur), "erreur")
+        else:
+            auditer("configuration_connecteur", "INPI")
+            flash("Les identifiants INPI sont protégés dans le coffre Windows.", "succes")
+        return redirect(url_for("configuration_centrale"))
+
+    @application.post("/configuration/smtp")
+    def configurer_smtp_web():
+        verifier_csrf()
+        existante = {}
+        try:
+            existante = lire_configuration_smtp()
+        except (OSError, ValueError):
+            pass
+        configuration = {
+            cle: request.form.get(cle, "").strip()
+            for cle in (
+                "hote", "port", "utilisateur", "mot_de_passe",
+                "expediteur", "destinataire",
+            )
+        }
+        if not configuration["mot_de_passe"]:
+            configuration["mot_de_passe"] = existante.get("mot_de_passe", "")
+        try:
+            proteger_configuration_smtp(configuration)
+        except (OSError, ValueError) as erreur:
+            flash(str(erreur), "erreur")
+        else:
+            auditer("configuration_connecteur", "SMTP")
+            flash("La configuration SMTP est protégée dans le coffre Windows.", "succes")
+        return redirect(url_for("configuration_centrale"))
+
+    @application.post("/configuration/notion")
+    def configurer_notion_web():
+        verifier_csrf()
+        jeton = request.form.get("jeton", "").strip()
+        try:
+            if jeton:
+                proteger_jeton_notion(jeton)
+            configurer_cible_notion(
+                "rapports_veille", request.form.get("rapports_veille", ""),
+                chemin_base(),
+            )
+            configurer_cible_notion(
+                "rapports_developpement",
+                request.form.get("rapports_developpement", ""), chemin_base(),
+            )
+        except (OSError, ValueError) as erreur:
+            flash(str(erreur), "erreur")
+        else:
+            auditer("configuration_connecteur", "Notion")
+            flash("La configuration Notion est enregistrée.", "succes")
+        return redirect(url_for("configuration_centrale"))
+
+    @application.post("/configuration/tester/<connecteur>")
+    def tester_connecteur(connecteur: str):
+        verifier_csrf()
+        tests = {
+            "annuaire": lambda: SourceAnnuaireEntreprises().collecter("356000000"),
+            "insee": lambda: SourceINSEE().collecter("356000000"),
+            "inpi": lambda: SourceINPI().verifier_connexion(),
+            "bodacc": lambda: SourceBODACC().collecter("356000000"),
+            "smtp": verifier_connexion_smtp,
+            "notion": verifier_connexion_notion,
+        }
+        if connecteur not in tests:
+            abort(404)
+        try:
+            tests[connecteur]()
+        except Exception as erreur:
+            auditer("test_connecteur_echec", connecteur)
+            flash(f"Échec du test {connecteur.upper()} : {erreur}", "erreur")
+        else:
+            auditer("test_connecteur_succes", connecteur)
+            flash(f"Connexion {connecteur.upper()} validée.", "succes")
+        return redirect(url_for("configuration_centrale"))
+
     @application.get("/rapports/<nom_fichier>")
     def consulter_rapport(nom_fichier: str):
         chemin = DOSSIER_RAPPORTS / Path(nom_fichier).name
@@ -883,5 +1116,229 @@ def creer_application(configuration: dict | None = None) -> Flask:
         if not chemin.is_file():
             abort(404)
         return send_file(chemin, as_attachment=True, download_name=chemin.name)
+
+    @application.route("/demarrage", methods=["GET", "POST"])
+    def assistant_demarrage():
+        progression = lire_progression_demarrage(chemin_base())
+        if request.method == "POST":
+            verifier_csrf()
+            action = request.form.get("action", "suivant")
+            try:
+                if action == "ajouter_siren":
+                    ajouter_societe_surveillee(
+                        request.form.get("siren", ""), chemin=chemin_base()
+                    )
+                    etape = max(progression["etape"], 4)
+                elif action == "terminer":
+                    enregistrer_progression_demarrage(6, True, chemin_base())
+                    auditer("assistant_termine")
+                    flash("Assistant terminé. Veille-SIREN est prêt.", "succes")
+                    return redirect(url_for("tableau_de_bord"))
+                else:
+                    etape = int(request.form.get("etape", progression["etape"] + 1))
+                enregistrer_progression_demarrage(etape, False, chemin_base())
+            except ValueError as erreur:
+                flash(str(erreur), "erreur")
+            else:
+                flash("Progression enregistrée.", "succes")
+            return redirect(url_for("assistant_demarrage"))
+        return render_template("demarrage.html", progression=progression)
+
+    @application.route("/profils", methods=["GET", "POST"])
+    def profils_surveillance():
+        if request.method == "POST":
+            verifier_csrf()
+            try:
+                enregistrer_profil(
+                    request.form.get("code", ""), request.form.get("nom", ""),
+                    request.form.get("description", ""), request.form.get("sources", ""),
+                    request.form.getlist("categories"), request.form.get("profondeur", "metadonnees"),
+                    request.form.get("notification", "hebdomadaire"), chemin_base(),
+                )
+            except ValueError as erreur: flash(str(erreur), "erreur")
+            else: auditer("profil_enregistre", request.form.get("code", "")); flash("Profil enregistré.", "succes")
+            return redirect(url_for("profils_surveillance"))
+        return render_template("profils.html", profils=lire_profils(chemin_base()), categories=CATEGORIES_ALERTES)
+
+    @application.post("/societes/<siren>/profil")
+    def modifier_profil_societe(siren):
+        verifier_csrf()
+        if lire_societe_surveillee(siren, chemin_base()) is None: abort(404)
+        try: appliquer_profil_societe(siren, request.form.get("profil", ""), chemin=chemin_base())
+        except ValueError as erreur: flash(str(erreur), "erreur")
+        else: auditer("profil_societe", siren, request.form.get("profil", "")); flash("Profil appliqué.", "succes")
+        return redirect(url_for("historique_societe", siren=siren))
+
+    @application.route("/calendrier", methods=["GET", "POST"])
+    def calendrier():
+        if request.method == "POST":
+            verifier_csrf()
+            try:
+                ajouter_echeance(
+                    request.form.get("libelle", ""), request.form.get("date_echeance", ""),
+                    request.form.get("siren", ""), commentaire=request.form.get("commentaire", ""),
+                    responsable=request.form.get("responsable", ""), rappel_jours=request.form.get("rappel_jours", 7),
+                    chemin=chemin_base(),
+                )
+            except (ValueError, TypeError) as erreur: flash(str(erreur), "erreur")
+            else: auditer("echeance_ajoutee", request.form.get("siren", "")); flash("Échéance ajoutée.", "succes")
+            return redirect(url_for("calendrier"))
+        dates_officielles = [
+            {
+                "date_echeance": document["date_depot"],
+                "libelle": document["libelle"] or document["nom_document"] or "Document INPI",
+                "siren": document["siren"],
+                "raison_sociale": document["raison_sociale"],
+                "origine": "INPI",
+            }
+            for document in lire_documents_inpi_tous(limite=100, chemin=chemin_base())
+            if document.get("date_depot")
+        ]
+        return render_template(
+            "calendrier.html",
+            echeances=lire_echeances(chemin=chemin_base()),
+            dates_officielles=dates_officielles,
+        )
+
+    @application.get("/calendrier.ics")
+    def exporter_calendrier():
+        return Response(exporter_echeances_ics(lire_echeances(chemin=chemin_base())), mimetype="text/calendar", headers={"Content-Disposition": "attachment; filename=veille-siren.ics"})
+
+    @application.route("/taches", methods=["GET", "POST"])
+    def taches():
+        if request.method == "POST":
+            verifier_csrf()
+            try:
+                ajouter_tache(
+                    request.form.get("titre", ""), request.form.get("siren", ""),
+                    request.form.get("description", ""), request.form.get("origine_type", "societe"),
+                    request.form.get("origine_id", ""), request.form.get("responsable", ""),
+                    request.form.get("date_echeance", ""), request.form.get("priorite", "normale"), chemin_base(),
+                )
+            except ValueError as erreur: flash(str(erreur), "erreur")
+            else: auditer("tache_ajoutee", request.form.get("siren", "")); flash("Tâche ajoutée.", "succes")
+            retour=request.form.get("retour_siren", "")
+            return redirect(url_for("historique_societe", siren=retour) if retour else url_for("taches"))
+        statut=request.args.get("statut", "")
+        if statut and statut not in STATUTS_TACHES: abort(400)
+        return render_template("taches.html", taches=lire_taches(statut=statut, chemin=chemin_base()), statuts=STATUTS_TACHES, priorites=PRIORITES_TACHES, statut_selectionne=statut)
+
+    @application.post("/taches/<int:identifiant>/statut")
+    def modifier_statut_tache(identifiant):
+        verifier_csrf()
+        try: changer_statut_tache(identifiant, request.form.get("statut", ""), chemin_base())
+        except ValueError as erreur: flash(str(erreur), "erreur")
+        except KeyError: abort(404)
+        else: flash("Tâche mise à jour.", "succes")
+        retour=request.form.get("retour_siren", "")
+        return redirect(url_for("historique_societe", siren=retour) if retour else url_for("taches"))
+
+    @application.get("/taches.csv")
+    def exporter_taches():
+        return Response(exporter_taches_csv(lire_taches(chemin=chemin_base())), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=taches-veille-siren.csv"})
+
+    @application.route("/notes", methods=["GET", "POST"])
+    def notes():
+        if request.method == "POST":
+            verifier_csrf()
+            try: ajouter_note(request.form.get("contenu", ""), request.form.get("siren", ""), request.form.get("cible_type", "societe"), request.form.get("cible_id", ""), bool(request.form.get("epinglee")), chemin_base())
+            except ValueError as erreur: flash(str(erreur), "erreur")
+            else: auditer("note_ajoutee", request.form.get("siren", "")); flash("Note ajoutée.", "succes")
+            retour=request.form.get("retour_siren", "")
+            return redirect(url_for("historique_societe", siren=retour) if retour else url_for("notes"))
+        return render_template("notes.html", notes=lire_notes(request.args.get("q", ""), chemin=chemin_base()), recherche=request.args.get("q", ""))
+
+    @application.post("/notes/<int:identifiant>/epingler")
+    def modifier_epingle_note(identifiant):
+        verifier_csrf(); epingler_note(identifiant, request.form.get("epinglee") == "1", chemin_base()); auditer("note_epinglee", str(identifiant)); return redirect(url_for("notes"))
+
+    @application.get("/notes.csv")
+    def exporter_notes():
+        return Response(exporter_notes_csv(lire_notes(chemin=chemin_base())),mimetype="text/csv",headers={"Content-Disposition":"attachment; filename=notes-veille-siren.csv"})
+
+    @application.post("/societes/<siren>/lier")
+    def lier_societe(siren):
+        verifier_csrf()
+        try: ajouter_lien_societes(siren, request.form.get("siren_cible", ""), request.form.get("libelle", ""), chemin_base())
+        except ValueError as erreur: flash(str(erreur), "erreur")
+        else: auditer("societes_liees", siren, request.form.get("siren_cible", "")); flash("Lien ajouté.", "succes")
+        return redirect(url_for("historique_societe", siren=siren))
+
+    @application.route("/documents/comparer", methods=["GET", "POST"])
+    def comparer_documents():
+        resultat=None; erreur=None; siren=request.values.get("siren", "")
+        documents=lire_documents_inpi(siren, chemin_base()) if siren else []
+        if request.method == "POST":
+            verifier_csrf(); selection=request.form.getlist("documents")
+            if len(selection)!=2: erreur="Sélectionnez exactement deux documents."
+            else:
+                try:
+                    from pypdf import PdfReader
+                    textes=[]
+                    for valeur in selection:
+                        type_document,identifiant=valeur.split(":",1)
+                        contenu,mime=SourceINPI().telecharger_document(type_document,identifiant)
+                        if not contenu.startswith(b"%PDF-"): raise ValueError("Un document sélectionné n'est pas un PDF.")
+                        lecteur=PdfReader(BytesIO(contenu)); texte="\n".join(page.extract_text() or "" for page in lecteur.pages).strip()
+                        if not texte: raise ValueError("PDF scanné non exploitable sans OCR.")
+                        textes.append(texte.splitlines())
+                    resultat=HtmlDiff(wrapcolumn=100).make_table(textes[0],textes[1],"Document 1","Document 2",context=True,numlines=3)
+                except Exception as exc: erreur=str(exc)
+        return render_template("comparaison_documents.html", documents=documents, siren=siren, resultat=resultat, erreur=erreur)
+
+    @application.route("/regles", methods=["GET", "POST"])
+    def regles_personnalisees():
+        simulation=[]
+        if request.method == "POST":
+            verifier_csrf()
+            try:
+                enregistrer_regle(request.form.get("nom", ""),request.form.get("champ", ""),request.form.get("operateur", ""),request.form.get("valeur", ""),request.form.get("niveau", "important"),request.form.get("libelle", ""),request.form.get("destinataires", ""),bool(request.form.get("active")),chemin=chemin_base())
+            except ValueError as erreur: flash(str(erreur),"erreur")
+            else: auditer("regle_ajoutee",request.form.get("nom", "")); flash("Règle enregistrée.","succes")
+            return redirect(url_for("regles_personnalisees"))
+        identifiant=request.args.get("simuler",type=int); siren=request.args.get("siren","")
+        if identifiant and siren:
+            regle=next((r for r in lire_regles(chemin_base()) if r["id"]==identifiant),None)
+            if regle: simulation=simuler_regle(regle,lire_collectes_societe(siren,chemin_base()))
+        return render_template("regles.html",regles=lire_regles(chemin_base()),champs=CHAMPS_REGLES,operateurs=OPERATEURS_REGLES,simulation=simulation)
+
+    @application.route("/modeles-rapports", methods=["GET", "POST"])
+    def modeles_rapports():
+        if request.method=="POST":
+            verifier_csrf()
+            try: enregistrer_modele_rapport(request.form.get("nom", ""),request.form.get("portefeuille_id",type=int),request.form.get("periode",7),request.form.getlist("niveaux"),request.form.getlist("sections"),request.form.get("format_sortie","html"),request.form.get("cadence","hebdomadaire"),request.form.get("destinataire",""),False,chemin_base())
+            except (ValueError,sqlite3.IntegrityError) as erreur: flash(str(erreur),"erreur")
+            else: auditer("modele_rapport_ajoute",request.form.get("nom", "")); flash("Modèle de rapport enregistré.","succes")
+            return redirect(url_for("modeles_rapports"))
+        return render_template("modeles_rapports.html",modeles=lire_modeles_rapports(chemin_base()),portefeuilles=lire_portefeuilles(chemin_base()))
+
+    @application.get("/modeles-rapports/<int:identifiant>/previsualiser")
+    def previsualiser_modele_rapport(identifiant):
+        modele=next((m for m in lire_modeles_rapports(chemin_base()) if m["id"]==identifiant),None)
+        if modele is None: abort(404)
+        return render_template("previsualisation_modele.html",modele=modele)
+
+    @application.post("/modeles-rapports/<int:identifiant>/activation")
+    def modifier_activation_modele_rapport(identifiant):
+        verifier_csrf()
+        try: activer_modele_rapport(identifiant,request.form.get("actif")=="1",chemin_base())
+        except KeyError: abort(404)
+        auditer("modele_rapport_activation",str(identifiant),request.form.get("actif","0")); flash("Activation du modèle mise à jour.","succes")
+        return redirect(url_for("modeles_rapports"))
+
+    @application.get("/api/v1/societes")
+    def api_societes():
+        return jsonify({"version":"v1","donnees":[{"siren":s.siren,"actif":s.actif,"commentaire":s.commentaire} for s in lire_societes_surveillees(inclure_archivees=True,chemin=chemin_base())]})
+
+    @application.get("/api/v1/alertes")
+    def api_alertes(): return jsonify({"version":"v1","donnees":lire_alertes(500,chemin=chemin_base())})
+    @application.get("/api/v1/documents")
+    def api_documents(): return jsonify({"version":"v1","donnees":lire_documents_inpi_tous(limite=500,decalage=0,chemin=chemin_base())})
+    @application.get("/api/v1/portefeuilles")
+    def api_portefeuilles(): return jsonify({"version":"v1","donnees":lire_portefeuilles(chemin_base())})
+    @application.get("/api/v1/executions")
+    def api_executions(): return jsonify({"version":"v1","donnees":lire_executions_veille(100,chemin_base())})
+    @application.get("/api")
+    def documentation_api(): return render_template("api.html")
 
     return application

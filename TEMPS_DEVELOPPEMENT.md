@@ -27,6 +27,7 @@ et n'inclut pas les interruptions.
 | 8 | 02/08/2026 | 13:26 | 14:06 | ≈ 40 min | Relevée |
 | 9 | 02/08/2026 | ≈ 17:20 | 20:04 | ≈ 2 h 06 | Mixte |
 | 10 | 02/08/2026 | ≈ 21:29 | 21:37 | ≈ 8 min | Mixte |
+| 11 | 03/08/2026 | 17:50 | 18:40 | ≈ 50 min | Relevée |
 
 ## Détail des travaux
 
@@ -125,9 +126,16 @@ et n'inclut pas les interruptions.
 | 02/08/2026 | Pré-0.2 | Clôture de session, contrôles finaux et sauvegarde GitHub | ≈ 2 min | ≈ 14 h 49 |
 | 02/08/2026 | Pré-0.2 | Refonte responsive du centre documentaire et pagination des 272 documents | ≈ 6 min | ≈ 14 h 55 |
 | 02/08/2026 | Pré-0.2 | Détail fonctionnel et critères de fin des phases 26 à 37 | ≈ 2 min | ≈ 14 h 57 |
+| 03/08/2026 | Pré-0.2 | Remplacement de Pappers automatique par l'Annuaire des entreprises, validation réelle et bascule de la tâche Windows | ≈ 8 min | ≈ 15 h 05 |
+| 03/08/2026 | Pré-0.2 | Correction responsive des débordements de texte, tableaux et menus sur téléphone | ≈ 7 min | ≈ 15 h 12 |
+| 03/08/2026 | Pré-0.2 | Phase 26 : centre de configuration, coffres DPAPI, tests de connexion, conservation et audit | ≈ 15 min | ≈ 15 h 27 |
+| 03/08/2026 | Pré-0.2 | Correction des faux changements de forme juridique, adresse et dirigeants, puis réparation ciblée de l'historique | ≈ 10 min | ≈ 15 h 37 |
+| 03/08/2026 | Pré-0.2 | Alertes enrichies et gérables depuis la fiche, noms complets des indépendants et objet de synthèse daté | ≈ 10 min | ≈ 15 h 47 |
+| 03/08/2026 | 1.0 | Phases 27 à 36, préparation de la phase 37, tests et audit responsive | ≈ 51 min (18:29–19:20) | ≈ 16 h 38 |
 
 ## Total par version
 
 | Version | Durée |
 |---|---:|
-| Pré-0.2 | ≈ 14 h 57 |
+| Pré-0.2 | ≈ 15 h 47 |
+| 1.0 | ≈ 51 min |

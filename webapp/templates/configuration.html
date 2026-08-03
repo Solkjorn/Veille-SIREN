@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block titre %}Configuration · Veille-SIREN{% endblock %}
+{% block contenu %}
+  <section class="introduction">
+    <p class="surtitre">Phase 26</p>
+    <h2>Centre de configuration</h2>
+    <p>Configurez et vérifiez les services sans modifier les fichiers du projet.</p>
+  </section>
+
+  {% if erreurs_configuration %}
+    <section class="messages" aria-label="Erreurs de configuration">
+      {% for erreur in erreurs_configuration %}<p class="message erreur">{{ erreur }}</p>{% endfor %}
+    </section>
+  {% endif %}
+
+  <section class="panneau">
+    <div class="titre-panneau">
+      <div><p class="surtitre">État général</p><h3>Connecteurs</h3></div>
+      <span>Les secrets ne sont jamais affichés</span>
+    </div>
+    <div class="grille-connecteurs">
+      {% for nom, connecteur in connecteurs.items() %}
+        <article>
+          <div>
+            <strong>{{ nom|upper }}</strong>
+            <span class="badge {{ 'active' if connecteur.configure else 'inactive' }}">
+              {{ 'Configuré' if connecteur.configure else 'À configurer' }}
+            </span>
+          </div>
+          <p>{{ connecteur.detail }}</p>
+          <form method="post" action="{{ url_for('tester_connecteur', connecteur=nom) }}">
+            <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+            <button class="bouton" type="submit">Tester la connexion</button>
+          </form>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="grille-configuration">
+    <section class="panneau contenu-panneau">
+      <p class="surtitre">Source officielle</p><h3>INSEE</h3>
+      <p>La clé est chiffrée avec Windows DPAPI et liée à votre compte.</p>
+      <form class="formulaire-configuration" method="post" action="{{ url_for('configurer_insee_web') }}">
+        <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+        <label><span>Nouvelle clé API</span><input type="password" name="cle_api" autocomplete="new-password" required></label>
+        <button class="bouton primaire" type="submit">Enregistrer la clé</button>
+      </form>
+    </section>
+
+    <section class="panneau contenu-panneau">
+      <p class="surtitre">Registre national</p><h3>INPI</h3>
+      <p>Le mot de passe reste dans le coffre Windows et n'est jamais prérempli.</p>
+      <form class="formulaire-configuration" method="post" action="{{ url_for('configurer_inpi_web') }}">
+        <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+        <label><span>Identifiant</span><input name="identifiant" value="{{ identifiant_inpi }}" autocomplete="username" required></label>
+        <label><span>Nouveau mot de passe</span><input type="password" name="mot_de_passe" autocomplete="new-password" required></label>
+        <button class="bouton primaire" type="submit">Enregistrer les identifiants</button>
+      </form>
+    </section>
+
+    <section class="panneau contenu-panneau configuration-large">
+      <p class="surtitre">Envoi des synthèses</p><h3>Courriel SMTP</h3>
+      <p>Laissez le mot de passe vide pour conserver celui déjà protégé.</p>
+      <form class="formulaire-configuration formulaire-smtp" method="post" action="{{ url_for('configurer_smtp_web') }}">
+        <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+        <label><span>Serveur</span><input name="hote" value="{{ smtp_public.hote }}" required></label>
+        <label><span>Port</span><input name="port" type="number" min="1" max="65535" value="{{ smtp_public.port or 587 }}" required></label>
+        <label><span>Identifiant</span><input name="utilisateur" value="{{ smtp_public.utilisateur }}" autocomplete="username" required></label>
+        <label><span>Mot de passe d'application</span><input type="password" name="mot_de_passe" autocomplete="new-password"></label>
+        <label><span>Adresse d'expédition</span><input type="email" name="expediteur" value="{{ smtp_public.expediteur }}" required></label>
+        <label><span>Destinataire général</span><input type="email" name="destinataire" value="{{ smtp_public.destinataire }}" required></label>
+        <button class="bouton primaire" type="submit">Enregistrer le courriel</button>
+      </form>
+    </section>
+
+    <section class="panneau contenu-panneau configuration-large">
+      <p class="surtitre">Publication externe facultative</p><h3>Notion</h3>
+      <p>Les identifiants des bases sont enregistrés dans SQLite ; le jeton reste protégé par DPAPI.</p>
+      <form class="formulaire-configuration formulaire-notion" method="post" action="{{ url_for('configurer_notion_web') }}">
+        <input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}">
+        <label><span>Nouveau jeton — facultatif</span><input type="password" name="jeton" autocomplete="new-password"></label>
+        <label><span>Base des rapports de veille</span><input name="rapports_veille" value="{{ notion.rapports_veille }}" required></label>
+        <label><span>Base du journal de développement</span><input name="rapports_developpement" value="{{ notion.rapports_developpement }}" required></label>
+        <button class="bouton primaire" type="submit">Enregistrer Notion</button>
+      </form>
+    </section>
+  </div>
+
+  <section class="panneau resume-configuration">
+    <div><p class="surtitre">Collecte</p><h3>Planification Windows</h3><p>{{ planification.etat if planification.disponible else 'Indisponible' }} · prochaine exécution : {{ planification.prochaine or 'inconnue' }}</p><a class="bouton lien-bouton" href="{{ url_for('automatisation') }}">Modifier la planification</a></div>
+    <div><p class="surtitre">Protection locale</p><h3>Sauvegardes</h3><p>{{ sauvegardes }} archive(s) locale(s) détectée(s). Conservation actuelle : {{ conservation.sauvegardes_nombre }} archives.</p><a class="bouton lien-bouton" href="{{ url_for('sauvegardes') }}">Gérer les sauvegardes</a></div>
+    <div><p class="surtitre">Conservation</p><h3>Données et rapports</h3><form class="formulaire-configuration" method="post" action="{{ url_for('configurer_conservation_web') }}"><input type="hidden" name="jeton_csrf" value="{{ jeton_csrf() }}"><label><span>Rapports de veille — jours</span><input type="number" name="rapports_jours" min="30" max="3650" value="{{ conservation.rapports_jours }}" required></label><label><span>Nombre de sauvegardes</span><input type="number" name="sauvegardes_nombre" min="1" max="100" value="{{ conservation.sauvegardes_nombre }}" required></label><button class="bouton" type="submit">Enregistrer la conservation</button></form></div>
+  </section>
+{% endblock %}

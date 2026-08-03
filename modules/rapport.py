@@ -9,6 +9,7 @@ from modules.base_donnees import (
     lire_collecte_avant,
     lire_collectes_entre,
     lire_erreurs_taches_entre,
+    lire_reglages_conservation,
 )
 from modules.comparaison import detecter_changements
 from modules.comparaison import Changement
@@ -240,12 +241,15 @@ def generer_rapport(
     dossier: Path = DOSSIER_RAPPORTS,
     date_rapport: datetime | None = None,
     erreurs: list[tuple[str, str]] | None = None,
+    chemin_base: Path = BASE_SQLITE,
 ) -> Path:
     """Génère le HTML principal et conserve un Markdown secondaire."""
     date_rapport = date_rapport or datetime.now()
     generer_rapport_markdown(resultats, dossier, date_rapport, erreurs)
     chemin = generer_rapport_html(resultats, dossier, date_rapport, erreurs)
-    nettoyer_rapports_anciens(dossier)
+    nettoyer_rapports_anciens(
+        dossier, lire_reglages_conservation(chemin_base)["rapports_jours"]
+    )
     return chemin
 
 
@@ -287,7 +291,9 @@ def generer_synthese_hebdomadaire(
         ),
         erreurs=erreurs,
     )
-    nettoyer_rapports_anciens(dossier)
+    nettoyer_rapports_anciens(
+        dossier, lire_reglages_conservation(chemin_base)["rapports_jours"]
+    )
     return chemin
 
 

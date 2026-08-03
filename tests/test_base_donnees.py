@@ -9,6 +9,7 @@ from modules.base_donnees import (
     changer_statut_alerte,
     configurer_preferences_alertes,
     configurer_destinataire_portefeuille,
+    configurer_reglages_conservation,
     creer_portefeuille,
     enregistrer_audit,
     configurer_cible_notion,
@@ -31,6 +32,7 @@ from modules.base_donnees import (
     lire_alertes,
     lire_preferences_alertes,
     lire_portefeuilles,
+    lire_reglages_conservation,
     lire_audit,
     publication_notion_existe,
     terminer_execution_veille,
@@ -40,6 +42,20 @@ from modules.modele import Societe
 
 
 class TestBaseDonnees(unittest.TestCase):
+
+    def test_reglages_de_conservation_valides_et_persistants(self):
+        self.assertEqual(
+            lire_reglages_conservation(self.chemin_base),
+            {"rapports_jours": 365, "sauvegardes_nombre": 12},
+        )
+        configurer_reglages_conservation(730, 24, self.chemin_base)
+        self.assertEqual(
+            lire_reglages_conservation(self.chemin_base),
+            {"rapports_jours": 730, "sauvegardes_nombre": 24},
+        )
+        with self.assertRaises(ValueError):
+            configurer_reglages_conservation(0, 24, self.chemin_base)
+
 
     def test_portefeuille_destinataire_et_journal_audit(self):
         identifiant = creer_portefeuille(
@@ -171,6 +187,33 @@ class TestBaseDonnees(unittest.TestCase):
             ).fetchone()
 
         self.assertEqual(table, ("collectes",))
+
+    def test_migration_25_vers_37_preserve_les_donnees(self):
+        ancienne_base = Path(self.dossier_temporaire.name) / "ancienne.sqlite"
+        with closing(sqlite3.connect(ancienne_base)) as connexion, connexion:
+            connexion.execute(
+                "CREATE TABLE donnees_existantes (id INTEGER PRIMARY KEY, valeur TEXT)"
+            )
+            connexion.execute(
+                "INSERT INTO donnees_existantes(valeur) VALUES ('à préserver')"
+            )
+            connexion.execute("PRAGMA user_version = 25")
+
+        initialiser_base(ancienne_base)
+
+        with closing(sqlite3.connect(ancienne_base)) as connexion:
+            self.assertEqual(
+                connexion.execute("PRAGMA user_version").fetchone()[0], 37
+            )
+            self.assertEqual(
+                connexion.execute(
+                    "SELECT valeur FROM donnees_existantes"
+                ).fetchone()[0],
+                "à préserver",
+            )
+            self.assertEqual(
+                connexion.execute("PRAGMA integrity_check").fetchone()[0], "ok"
+            )
 
     def test_enregistrer_etat_tache_conserve_le_cycle_de_vie(self):
         enregistrer_etat_tache(
